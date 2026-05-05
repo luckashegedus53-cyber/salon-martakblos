@@ -84,9 +84,9 @@ const STATUS_CONFIG = {
   cancelled: { label: "Cancelado", className: "status-cancelled", icon: XCircle },
 };
 
-// Horários da agenda física (08:00 às 21:30, a cada 30 min)
-const TIME_SLOTS = Array.from({ length: 28 }, (_, i) => {
-  const totalMinutes = 8 * 60 + i * 30;
+// Horários da agenda (09:00 às 19:30, a cada 30 min)
+const TIME_SLOTS = Array.from({ length: 22 }, (_, i) => {
+  const totalMinutes = 9 * 60 + i * 30;
   const h = Math.floor(totalMinutes / 60).toString().padStart(2, "0");
   const m = (totalMinutes % 60).toString().padStart(2, "0");
   return `${h}:${m}`;
@@ -466,13 +466,13 @@ export default function AppointmentsPage() {
                                 <td
                                   colSpan={3}
                                   className={cn(
-                                    "px-3 py-2.5 cursor-pointer group h-10",
+                                    "h-10 cursor-pointer group text-center align-middle select-none",
                                     !isLastProf && "border-r"
                                   )}
                                   onClick={() => openNewModal(slot)}
                                 >
-                                  <span className="text-xs text-muted-foreground/0 group-hover:text-muted-foreground/40 transition-colors select-none">
-                                    + agendar
+                                  <span className="text-sm font-bold text-muted-foreground/30 group-hover:text-primary/60 transition-colors">
+                                    ×
                                   </span>
                                 </td>
                               </Fragment>
