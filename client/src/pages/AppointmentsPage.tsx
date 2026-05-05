@@ -61,7 +61,7 @@ import {
   Scissors,
   XCircle,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -368,19 +368,32 @@ export default function AppointmentsPage() {
             </div>
           ) : (
             <div className="bg-card rounded-xl border shadow-sm overflow-x-auto">
-              <table className="w-full text-sm border-collapse min-w-[600px]">
+              <table className="text-sm border-collapse" style={{ minWidth: `${80 + visibleProfessionals.length * 300}px`, tableLayout: 'fixed', width: '100%' }}>
+                <colgroup>
+                  <col style={{ width: '80px' }} />
+                  {visibleProfessionals.map((prof) => (
+                    <Fragment key={prof.id}>
+                      <col style={{ width: '120px' }} />
+                      <col style={{ width: '120px' }} />
+                      <col style={{ width: '90px' }} />
+                    </Fragment>
+                  ))}
+                </colgroup>
                 <thead>
                   <tr className="border-b bg-muted/40">
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground w-20 border-r">
-                      Hora
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-muted-foreground border-r sticky left-0 bg-muted/40 z-10">
+                      HORA
                     </th>
-                    {visibleProfessionals.map((prof) => (
+                    {visibleProfessionals.map((prof, idx) => (
                       <th
                         key={prof.id}
                         colSpan={3}
-                        className="px-3 py-3 text-center font-serif font-semibold text-foreground border-r last:border-r-0"
+                        className={cn(
+                          "px-3 py-3 text-center font-serif font-semibold text-foreground",
+                          idx < visibleProfessionals.length - 1 && "border-r"
+                        )}
                       >
-                        {prof.name}
+                        <span className="block">{prof.name}</span>
                         {prof.specialty && (
                           <span className="block text-xs font-normal text-muted-foreground font-sans">
                             {prof.specialty}
@@ -390,19 +403,22 @@ export default function AppointmentsPage() {
                     ))}
                   </tr>
                   <tr className="border-b bg-muted/20 text-xs text-muted-foreground">
-                    <th className="px-4 py-2 border-r" />
-                    {visibleProfessionals.map((prof) => (
-                      <>
-                        <th key={`${prof.id}-cliente`} className="px-3 py-2 text-left font-medium w-32">
+                    <th className="px-3 py-2 border-r sticky left-0 bg-muted/20 z-10" />
+                    {visibleProfessionals.map((prof, idx) => (
+                      <Fragment key={prof.id}>
+                        <th className="px-3 py-2 text-left font-medium">
                           Cliente
                         </th>
-                        <th key={`${prof.id}-servico`} className="px-3 py-2 text-left font-medium w-36">
+                        <th className="px-3 py-2 text-left font-medium">
                           Serviço
                         </th>
-                        <th key={`${prof.id}-valor`} className="px-3 py-2 text-right font-medium w-24 border-r last:border-r-0">
+                        <th className={cn(
+                          "px-3 py-2 text-right font-medium",
+                          idx < visibleProfessionals.length - 1 && "border-r"
+                        )}>
                           Valor
                         </th>
-                      </>
+                      </Fragment>
                     ))}
                   </tr>
                 </thead>
@@ -436,44 +452,47 @@ export default function AppointmentsPage() {
                         </td>
 
                         {/* Células por profissional */}
-                        {visibleProfessionals.map((prof) => {
+                        {visibleProfessionals.map((prof, profIdx) => {
                           const appt = selectedDayAppointments.find((a) => {
                             const d = new Date(a.scheduledAt);
                             return a.professionalId === prof.id &&
                               d.getHours() === slotH && d.getMinutes() === slotM;
                           });
+                          const isLastProf = profIdx === visibleProfessionals.length - 1;
 
                           if (!appt) {
                             return (
-                              <>
+                              <Fragment key={`${prof.id}-${slot}-empty`}>
                                 <td
-                                  key={`${prof.id}-empty-c`}
                                   colSpan={3}
-                                  className="px-3 py-2.5 border-r last:border-r-0 cursor-pointer group"
+                                  className={cn(
+                                    "px-3 py-2.5 cursor-pointer group h-10",
+                                    !isLastProf && "border-r"
+                                  )}
                                   onClick={() => openNewModal(slot)}
                                 >
-                                  <span className="text-xs text-muted-foreground/0 group-hover:text-muted-foreground/50 transition-colors select-none">
+                                  <span className="text-xs text-muted-foreground/0 group-hover:text-muted-foreground/40 transition-colors select-none">
                                     + agendar
                                   </span>
                                 </td>
-                              </>
+                              </Fragment>
                             );
                           }
 
                           const statusCfg = STATUS_CONFIG[appt.status];
                           return (
-                            <>
+                            <Fragment key={`${prof.id}-${slot}-appt`}>
                               {/* Cliente */}
-                              <td key={`${appt.id}-c`} className="px-3 py-2.5 max-w-[130px]">
+                              <td className="px-3 py-2 overflow-hidden">
                                 <div className="flex flex-col">
                                   <span className={cn(
-                                    "font-medium text-sm truncate",
+                                    "font-medium text-xs truncate block",
                                     appt.status === "cancelled" && "line-through text-muted-foreground"
                                   )}>
                                     {appt.clientName}
                                   </span>
                                   <span className={cn(
-                                    "text-[10px] px-1.5 py-0.5 rounded-full w-fit mt-0.5",
+                                    "text-[9px] px-1 py-0.5 rounded-full w-fit mt-0.5 leading-tight",
                                     statusCfg.className
                                   )}>
                                     {statusCfg.label}
@@ -481,7 +500,7 @@ export default function AppointmentsPage() {
                                 </div>
                               </td>
                               {/* Serviço */}
-                              <td key={`${appt.id}-s`} className="px-3 py-2.5 max-w-[140px]">
+                              <td className="px-3 py-2 overflow-hidden">
                                 <span className={cn(
                                   "text-xs text-muted-foreground truncate block",
                                   appt.status === "cancelled" && "line-through"
@@ -490,10 +509,13 @@ export default function AppointmentsPage() {
                                 </span>
                               </td>
                               {/* Valor + ações */}
-                              <td key={`${appt.id}-v`} className="px-3 py-2.5 border-r last:border-r-0">
+                              <td className={cn(
+                                "px-3 py-2",
+                                !isLastProf && "border-r"
+                              )}>
                                 <div className="flex items-center justify-between gap-1">
                                   <span className={cn(
-                                    "text-sm font-semibold text-primary whitespace-nowrap",
+                                    "text-xs font-semibold text-primary whitespace-nowrap",
                                     appt.status === "cancelled" && "line-through text-muted-foreground"
                                   )}>
                                     {formatCurrency(appt.servicePrice)}
@@ -503,22 +525,22 @@ export default function AppointmentsPage() {
                                       <button
                                         title="Concluir"
                                         onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "completed" })}
-                                        className="p-1 rounded text-green-600 hover:bg-green-50 transition-colors"
+                                        className="p-0.5 rounded text-green-600 hover:bg-green-50 transition-colors"
                                       >
-                                        <CheckCircle2 className="h-3.5 w-3.5" />
+                                        <CheckCircle2 className="h-3 w-3" />
                                       </button>
                                       <button
                                         title="Cancelar"
                                         onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "cancelled" })}
-                                        className="p-1 rounded text-red-500 hover:bg-red-50 transition-colors"
+                                        className="p-0.5 rounded text-red-500 hover:bg-red-50 transition-colors"
                                       >
-                                        <XCircle className="h-3.5 w-3.5" />
+                                        <XCircle className="h-3 w-3" />
                                       </button>
                                     </div>
                                   )}
                                 </div>
                               </td>
-                            </>
+                            </Fragment>
                           );
                         })}
                       </tr>
@@ -531,22 +553,26 @@ export default function AppointmentsPage() {
                     <td className="px-4 py-3 text-xs font-semibold text-muted-foreground border-r">
                       Total
                     </td>
-                    {visibleProfessionals.map((prof) => {
+                    {visibleProfessionals.map((prof, profIdx) => {
                       const profTotal = selectedDayAppointments
                         .filter((a) => a.professionalId === prof.id && a.status !== "cancelled")
                         .reduce((sum, a) => sum + Number(a.servicePrice), 0);
                       const profCount = selectedDayAppointments
                         .filter((a) => a.professionalId === prof.id && a.status !== "cancelled").length;
+                      const isLastProf = profIdx === visibleProfessionals.length - 1;
                       return (
-                        <>
-                          <td key={`${prof.id}-tot-c`} className="px-3 py-3 text-xs text-muted-foreground">
+                        <Fragment key={prof.id}>
+                          <td className="px-3 py-3 text-xs text-muted-foreground">
                             {profCount} atend.
                           </td>
-                          <td key={`${prof.id}-tot-s`} className="px-3 py-3" />
-                          <td key={`${prof.id}-tot-v`} className="px-3 py-3 text-right font-bold text-primary border-r last:border-r-0">
+                          <td className="px-3 py-3" />
+                          <td className={cn(
+                            "px-3 py-3 text-right font-bold text-primary",
+                            !isLastProf && "border-r"
+                          )}>
                             {formatCurrency(profTotal)}
                           </td>
-                        </>
+                        </Fragment>
                       );
                     })}
                   </tr>
