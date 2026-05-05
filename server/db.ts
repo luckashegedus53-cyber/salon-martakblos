@@ -84,9 +84,9 @@ export async function getProfessionals(activeOnly = true) {
   const db = await getDb();
   if (!db) return [];
   if (activeOnly) {
-    return db.select().from(professionals).where(eq(professionals.active, true)).orderBy(professionals.name);
+    return db.select().from(professionals).where(eq(professionals.active, true)).orderBy(professionals.id);
   }
-  return db.select().from(professionals).orderBy(professionals.name);
+  return db.select().from(professionals).orderBy(professionals.id);
 }
 
 export async function getProfessionalById(id: number) {
