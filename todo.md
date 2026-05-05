@@ -1,0 +1,53 @@
+# Sistema de Gestão para Salão de Beleza — TODO
+
+## Banco de Dados & Schema
+- [x] Tabela `professionals` (profissionais do salão)
+- [x] Tabela `services` (serviços oferecidos com valor e comissão padrão)
+- [x] Tabela `commission_rules` (regras de comissão por profissional ou serviço)
+- [x] Tabela `appointments` (agendamentos com status)
+- [x] Aplicar migrações no banco
+
+## Backend (tRPC)
+- [x] CRUD de profissionais
+- [x] CRUD de serviços
+- [x] CRUD de regras de comissão
+- [x] CRUD de agendamentos (sem delete, apenas status)
+- [x] Queries de dashboard financeiro (diário, semanal, mensal)
+- [x] Cálculo automático de comissões
+
+## Design & Layout
+- [x] Paleta de cores elegante (tons neutros + dourado/rose gold)
+- [x] Tipografia refinada (fonte serif + sans-serif)
+- [x] DashboardLayout com sidebar elegante
+- [x] Navegação com controle de acesso por perfil (admin/profissional)
+- [x] Responsividade mobile-first
+
+## Telas — Agenda
+- [x] Visualização em calendário mensal
+- [x] Visualização em lista semanal/diária
+- [x] Formulário de novo agendamento
+- [x] Modal de edição de agendamento
+- [x] Filtros por profissional e data
+- [x] Controle de status (Concluído / Cancelado / Agendado)
+
+## Telas — Cadastros (Admin)
+- [x] Listagem e cadastro de profissionais
+- [x] Listagem e cadastro de serviços
+- [x] Configuração de regras de comissão por profissional
+- [x] Configuração de regras de comissão por serviço
+
+## Telas — Dashboard Financeiro (Admin only)
+- [x] Cards de resumo: faturamento e comissão do dia
+- [x] Gráfico de faturamento semanal
+- [x] Resumo mensal com comissão por profissional
+- [x] Tabela de comissões para pagamento
+
+## Telas — Profissional
+- [x] Agenda própria e compartilhada
+- [x] Visualização de atendimentos do dia
+
+## Testes
+- [x] Testes de procedures de agendamento
+- [x] Testes de cálculo de comissão
+- [x] Testes de controle de acesso (admin vs profissional)
+- [x] 15/15 testes passando
