@@ -79,6 +79,7 @@ export const appointments = mysqlTable("appointments", {
   professionalId: int("professionalId").notNull(),
   serviceId: int("serviceId").notNull(),
   scheduledAt: timestamp("scheduledAt").notNull(), // data + hora do atendimento
+  timeSlot: varchar("timeSlot", { length: 5 }), // horário local do usuário ex: "13:00"
   // Valor e comissão são registrados no momento do agendamento/conclusão
   servicePrice: decimal("servicePrice", { precision: 10, scale: 2 }).notNull(),
   commissionPct: decimal("commissionPct", { precision: 5, scale: 2 }).notNull(),

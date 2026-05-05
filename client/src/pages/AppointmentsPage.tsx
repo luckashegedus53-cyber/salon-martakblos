@@ -110,8 +110,8 @@ export default function AppointmentsPage() {
   const { data: professionals = [] } = trpc.professionals.list.useQuery({ activeOnly: true });
   const { data: services = [] } = trpc.services.list.useQuery({ activeOnly: true });
 
-  const startDate = startOfMonth(currentDate);
-  const endDate = endOfMonth(currentDate);
+  const startDate = useMemo(() => startOfMonth(currentDate), [currentDate]);
+  const endDate = useMemo(() => endOfMonth(currentDate), [currentDate]);
 
   const { data: appointments = [], isLoading } = trpc.appointments.list.useQuery({
     professionalId: filterProfessionalId !== "all" ? parseInt(filterProfessionalId) : undefined,
@@ -153,6 +153,9 @@ export default function AppointmentsPage() {
   const onSubmit = (values: AppointmentFormValues) => {
     const baseDate = values.date ?? selectedDate ?? new Date();
     const [hours, minutes] = values.time.split(":").map(Number);
+    // Construir scheduledAt usando o timezone local do browser
+    // setHours() usa o timezone local, então 13:00 em UTC-3 → 16:00 UTC
+    // O mysql2 armazena e retorna em UTC, então getUTCHours() na tabela retorna 16
     const scheduledAt = new Date(baseDate);
     scheduledAt.setHours(hours!, minutes!, 0, 0);
     createMutation.mutate({
@@ -161,6 +164,7 @@ export default function AppointmentsPage() {
       professionalId: parseInt(values.professionalId),
       serviceId: parseInt(values.serviceId),
       scheduledAt,
+      timeSlot: values.time, // horário local do usuário ex: "13:00"
       notes: values.notes || null,
     });
   };
@@ -186,11 +190,17 @@ export default function AppointmentsPage() {
     return eachDayOfInterval({ start, end });
   }, [currentDate]);
 
+  // Comparar datas usando UTC para evitar problemas de timezone
+  const isSameDayUTC = (d1: Date, d2: Date) =>
+    d1.getUTCFullYear() === d2.getUTCFullYear() &&
+    d1.getUTCMonth() === d2.getUTCMonth() &&
+    d1.getUTCDate() === d2.getUTCDate();
+
   const getAppointmentsForDay = (day: Date) =>
-    appointments.filter((a) => isSameDay(new Date(a.scheduledAt), day));
+    appointments.filter((a) => isSameDayUTC(new Date(a.scheduledAt), day));
 
   const selectedDayAppointments = appointments
-    .filter((a) => isSameDay(new Date(a.scheduledAt), selectedDate))
+    .filter((a) => isSameDayUTC(new Date(a.scheduledAt), selectedDate))
     .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
 
   const getProfessionalName = (id: number) =>
@@ -200,6 +210,14 @@ export default function AppointmentsPage() {
 
   const formatCurrency = (val: string | number) =>
     `R$ ${Number(val).toFixed(2).replace(".", ",")}`;
+
+  // Formatar hora usando UTC para evitar deslocamento de timezone
+  const formatUTCTime = (date: Date | string) => {
+    const d = new Date(date);
+    const h = String(d.getUTCHours()).padStart(2, "0");
+    const m = String(d.getUTCMinutes()).padStart(2, "0");
+    return `${h}:${m}`;
+  };
 
   const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
@@ -424,13 +442,13 @@ export default function AppointmentsPage() {
                 </thead>
                 <tbody>
                   {TIME_SLOTS.map((slot) => {
-                    const [slotH, slotM] = slot.split(":").map(Number);
                     const hasAny = visibleProfessionals.some((prof) =>
                       selectedDayAppointments.some((a) => {
-                        const d = new Date(a.scheduledAt);
+                        // Usar timeSlot (string "HH:MM") para comparação sem problemas de timezone
+                        const matchSlot = a.timeSlot ? a.timeSlot === slot : false;
                         return a.professionalId === prof.id &&
                           a.status !== "cancelled" &&
-                          d.getHours() === slotH && d.getMinutes() === slotM;
+                          matchSlot;
                       })
                     );
 
@@ -455,9 +473,8 @@ export default function AppointmentsPage() {
                         {/* Células por profissional */}
                         {visibleProfessionals.map((prof, profIdx) => {
                           const appt = selectedDayAppointments.find((a) => {
-                            const d = new Date(a.scheduledAt);
-                            return a.professionalId === prof.id &&
-                              d.getHours() === slotH && d.getMinutes() === slotM;
+                            const matchSlot = a.timeSlot ? a.timeSlot === slot : false;
+                            return a.professionalId === prof.id && matchSlot;
                           });
                           const isLastProf = profIdx === visibleProfessionals.length - 1;
 
@@ -638,7 +655,7 @@ export default function AppointmentsPage() {
                               a.status === "cancelled" && "bg-red-100 text-red-600 line-through opacity-70",
                             )}
                           >
-                            {format(new Date(a.scheduledAt), "HH:mm")} {a.clientName}
+                            {formatUTCTime(a.scheduledAt)} {a.clientName}
                           </div>
                         ))}
                         {dayAppts.length > 2 && (
@@ -685,7 +702,7 @@ export default function AppointmentsPage() {
                             <p className="font-medium text-sm">{appt.clientName}</p>
                             <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                               <Clock className="h-3 w-3" />
-                              {format(new Date(appt.scheduledAt), "HH:mm")}
+                              {formatUTCTime(appt.scheduledAt)}
                             </p>
                           </div>
                           <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", status.className)}>
@@ -778,7 +795,7 @@ export default function AppointmentsPage() {
                       <div key={appt.id} className="grid grid-cols-[80px_1fr_1fr_100px_120px_80px] gap-0 items-center px-6 py-3 hover:bg-muted/20 transition-colors">
                         <div>
                           <p className="text-xs text-muted-foreground">{format(new Date(appt.scheduledAt), "dd/MM")}</p>
-                          <p className="text-sm font-medium">{format(new Date(appt.scheduledAt), "HH:mm")}</p>
+                          <p className="text-sm font-medium">{formatUTCTime(appt.scheduledAt)}</p>
                         </div>
                         <p className={cn("text-sm font-medium truncate pr-2", appt.status === "cancelled" && "line-through text-muted-foreground")}>
                           {appt.clientName}

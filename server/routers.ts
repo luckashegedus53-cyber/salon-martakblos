@@ -173,6 +173,7 @@ const appointmentsRouter = router({
         professionalId: z.number(),
         serviceId: z.number(),
         scheduledAt: z.date(),
+        timeSlot: z.string().optional().nullable(), // horário local do usuário ex: "13:00"
         notes: z.string().optional().nullable(),
       })
     )
