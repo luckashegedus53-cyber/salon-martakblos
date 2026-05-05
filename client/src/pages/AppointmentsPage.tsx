@@ -360,7 +360,7 @@ export default function AppointmentsPage() {
           </div>
 
           {/* Summary bar */}
-          <div className="flex items-center gap-4 px-5 py-3 bg-card rounded-xl border flex-wrap">
+          <div className="flex items-center gap-4 px-5 py-3 bg-card rounded-xl border">
             <div className="flex items-center gap-2 text-sm">
               <CalendarDays className="h-4 w-4 text-primary" />
               <span className="text-muted-foreground">Atendimentos:</span>
@@ -372,18 +372,19 @@ export default function AppointmentsPage() {
               <span className="text-muted-foreground">Faturamento do dia:</span>
               <span className="font-semibold text-primary">{formatCurrency(dayTotal)}</span>
             </div>
-            <div className="h-4 w-px bg-border" />
-            <div className="flex items-center gap-2 text-sm">
-              <Percent className="h-4 w-4 text-amber-600" />
-              <span className="text-muted-foreground">Comissão do dia:</span>
-              <span className="font-semibold text-amber-600">{formatCurrency(dayCommission)}</span>
-            </div>
             <div className="ml-auto">
               <Button size="sm" className="gap-1.5" onClick={() => openNewModal()}>
                 <Plus className="h-3.5 w-3.5" />
                 Agendar
               </Button>
             </div>
+          </div>
+
+          {/* Comissão do dia */}
+          <div className="flex items-center gap-3 px-5 py-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800">
+            <Percent className="h-4 w-4 text-amber-600" />
+            <span className="text-sm text-muted-foreground">Comissão do dia:</span>
+            <span className="text-sm font-bold text-amber-600">{formatCurrency(dayCommission)}</span>
           </div>
 
           {/* Book table */}
