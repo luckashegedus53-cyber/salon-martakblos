@@ -429,6 +429,7 @@ export default function AppointmentsPage() {
                       selectedDayAppointments.some((a) => {
                         const d = new Date(a.scheduledAt);
                         return a.professionalId === prof.id &&
+                          a.status !== "cancelled" &&
                           d.getHours() === slotH && d.getMinutes() === slotM;
                       })
                     );
@@ -460,7 +461,8 @@ export default function AppointmentsPage() {
                           });
                           const isLastProf = profIdx === visibleProfessionals.length - 1;
 
-                          if (!appt) {
+                          // Célula vazia OU cancelada → exibe × e permite novo agendamento
+                          if (!appt || appt.status === "cancelled") {
                             return (
                               <Fragment key={`${prof.id}-${slot}-empty`}>
                                 <td
@@ -485,10 +487,7 @@ export default function AppointmentsPage() {
                               {/* Cliente */}
                               <td className="px-3 py-2 overflow-hidden">
                                 <div className="flex flex-col">
-                                  <span className={cn(
-                                    "font-medium text-xs truncate block",
-                                    appt.status === "cancelled" && "line-through text-muted-foreground"
-                                  )}>
+                                  <span className="font-medium text-xs truncate block">
                                     {appt.clientName}
                                   </span>
                                   <span className={cn(
@@ -501,10 +500,7 @@ export default function AppointmentsPage() {
                               </td>
                               {/* Serviço */}
                               <td className="px-3 py-2 overflow-hidden">
-                                <span className={cn(
-                                  "text-xs text-muted-foreground truncate block",
-                                  appt.status === "cancelled" && "line-through"
-                                )}>
+                                <span className="text-xs text-muted-foreground truncate block">
                                   {getServiceName(appt.serviceId)}
                                 </span>
                               </td>
@@ -514,10 +510,7 @@ export default function AppointmentsPage() {
                                 !isLastProf && "border-r"
                               )}>
                                 <div className="flex items-center justify-between gap-1">
-                                  <span className={cn(
-                                    "text-xs font-semibold text-primary whitespace-nowrap",
-                                    appt.status === "cancelled" && "line-through text-muted-foreground"
-                                  )}>
+                                  <span className="text-xs font-semibold text-primary whitespace-nowrap">
                                     {formatCurrency(appt.servicePrice)}
                                   </span>
                                   {appt.status === "scheduled" && (
