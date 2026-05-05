@@ -70,3 +70,6 @@
 - [x] Cadastrar admin: login=admin, senha=admin123, role=admin
 - [x] Cadastrar profissionais: Marta/marta, Bia/bia, Glei/glei, Janaina/janaina, Maysa/maysa, Viviane/viviane (role=user)
 - [x] Garantir que profissionais não vejam Dashboard Financeiro no menu
+
+## Melhorias na Agenda
+- [x] Adicionar card "Comissão do Dia" abaixo do card de atendimentos/faturamento na agenda

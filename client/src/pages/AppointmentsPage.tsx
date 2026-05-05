@@ -57,6 +57,7 @@ import {
   Filter,
   List,
   Loader2,
+  Percent,
   Plus,
   Scissors,
   XCircle,
@@ -231,6 +232,11 @@ export default function AppointmentsPage() {
     .filter((a) => a.status !== "cancelled")
     .reduce((sum, a) => sum + Number(a.servicePrice), 0);
 
+  // Comissão do dia
+  const dayCommission = selectedDayAppointments
+    .filter((a) => a.status !== "cancelled")
+    .reduce((sum, a) => sum + Number(a.commissionValue), 0);
+
   return (
     <div className="space-y-6 max-w-full">
       {/* Page Header */}
@@ -354,7 +360,7 @@ export default function AppointmentsPage() {
           </div>
 
           {/* Summary bar */}
-          <div className="flex items-center gap-4 px-5 py-3 bg-card rounded-xl border">
+          <div className="flex items-center gap-4 px-5 py-3 bg-card rounded-xl border flex-wrap">
             <div className="flex items-center gap-2 text-sm">
               <CalendarDays className="h-4 w-4 text-primary" />
               <span className="text-muted-foreground">Atendimentos:</span>
@@ -365,6 +371,12 @@ export default function AppointmentsPage() {
               <DollarSign className="h-4 w-4 text-primary" />
               <span className="text-muted-foreground">Faturamento do dia:</span>
               <span className="font-semibold text-primary">{formatCurrency(dayTotal)}</span>
+            </div>
+            <div className="h-4 w-px bg-border" />
+            <div className="flex items-center gap-2 text-sm">
+              <Percent className="h-4 w-4 text-amber-600" />
+              <span className="text-muted-foreground">Comissão do dia:</span>
+              <span className="font-semibold text-amber-600">{formatCurrency(dayCommission)}</span>
             </div>
             <div className="ml-auto">
               <Button size="sm" className="gap-1.5" onClick={() => openNewModal()}>
