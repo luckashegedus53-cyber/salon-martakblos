@@ -15,6 +15,13 @@
       "when": 1778013709752,
       "tag": "0001_adorable_thanos",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1778022603840,
+      "tag": "0002_strange_susan_delgado",
+      "breakpoints": true
     }
   ]
 }

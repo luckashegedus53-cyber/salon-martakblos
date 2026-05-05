@@ -1,0 +1,59 @@
+{
+  "query": "SELECT id, username, name, role, loginMethod FROM users WHERE loginMethod = 'local' ORDER BY role DESC, name ASC;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 46cbc1vsr3mJ5gL.54b447c96361 --database 4eNQWSZhGCJTohuK9aDhoq --execute SELECT id, username, name, role, loginMethod FROM users WHERE loginMethod = 'local' ORDER BY role DESC, name ASC;",
+  "rows": [
+    {
+      "id": "30297",
+      "username": "admin",
+      "name": "Administrador",
+      "role": "admin",
+      "loginMethod": "local"
+    },
+    {
+      "id": "30299",
+      "username": "bia",
+      "name": "Bia",
+      "role": "user",
+      "loginMethod": "local"
+    },
+    {
+      "id": "30300",
+      "username": "glei",
+      "name": "Glei",
+      "role": "user",
+      "loginMethod": "local"
+    },
+    {
+      "id": "30301",
+      "username": "janaina",
+      "name": "Janaina",
+      "role": "user",
+      "loginMethod": "local"
+    },
+    {
+      "id": "30298",
+      "username": "marta",
+      "name": "Marta",
+      "role": "user",
+      "loginMethod": "local"
+    },
+    {
+      "id": "30302",
+      "username": "maysa",
+      "name": "Maysa",
+      "role": "user",
+      "loginMethod": "local"
+    },
+    {
+      "id": "30303",
+      "username": "viviane",
+      "name": "Viviane",
+      "role": "user",
+      "loginMethod": "local"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tusername\tname\trole\tloginMethod\n30297\tadmin\tAdministrador\tadmin\tlocal\n30299\tbia\tBia\tuser\tlocal\n30300\tglei\tGlei\tuser\tlocal\n30301\tjanaina\tJanaina\tuser\tlocal\n30298\tmarta\tMarta\tuser\tlocal\n30302\tmaysa\tMaysa\tuser\tlocal\n30303\tviviane\tViviane\tuser\tlocal\n",
+  "stderr": "",
+  "execution_time_ms": 116
+}

@@ -10,20 +10,29 @@ import DashboardPage from "./pages/DashboardPage";
 import ProfessionalsPage from "./pages/ProfessionalsPage";
 import ServicesPage from "./pages/ServicesPage";
 import CommissionsPage from "./pages/CommissionsPage";
+import LoginPage from "./pages/LoginPage";
 
 function Router() {
   return (
-    <DashboardLayout>
-      <Switch>
-        <Route path="/" component={AppointmentsPage} />
-        <Route path="/dashboard" component={DashboardPage} />
-        <Route path="/professionals" component={ProfessionalsPage} />
-        <Route path="/services" component={ServicesPage} />
-        <Route path="/commissions" component={CommissionsPage} />
-        <Route path="/404" component={NotFound} />
-        <Route component={NotFound} />
-      </Switch>
-    </DashboardLayout>
+    <Switch>
+      {/* Rota de login fora do DashboardLayout */}
+      <Route path="/login" component={LoginPage} />
+
+      {/* Rotas protegidas dentro do DashboardLayout */}
+      <Route>
+        <DashboardLayout>
+          <Switch>
+            <Route path="/" component={AppointmentsPage} />
+            <Route path="/dashboard" component={DashboardPage} />
+            <Route path="/professionals" component={ProfessionalsPage} />
+            <Route path="/services" component={ServicesPage} />
+            <Route path="/commissions" component={CommissionsPage} />
+            <Route path="/404" component={NotFound} />
+            <Route component={NotFound} />
+          </Switch>
+        </DashboardLayout>
+      </Route>
+    </Switch>
   );
 }
 

@@ -20,7 +20,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { getLoginUrl } from "@/const";
+// OAuth removido — login próprio em /login
 import { useIsMobile } from "@/hooks/useMobile";
 import {
   BarChart3,
@@ -63,56 +63,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   });
   const { loading, user } = useAuth();
 
+  // Todos os hooks devem vir antes de qualquer return condicional
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
   }, [sidebarWidth]);
 
+  // Redirecionar para /login se não autenticado
+  useEffect(() => {
+    if (!loading && !user) {
+      window.location.href = "/login";
+    }
+  }, [loading, user]);
+
   if (loading) return <DashboardLayoutSkeleton />;
 
   if (!user) {
-    return (
-      <div
-        className="flex items-center justify-center min-h-screen"
-        style={{
-          background: "linear-gradient(135deg, oklch(0.14 0.01 60) 0%, oklch(0.22 0.015 30) 100%)",
-        }}
-      >
-        <div className="flex flex-col items-center gap-8 p-10 max-w-sm w-full mx-4">
-          {/* Logo */}
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center"
-              style={{ background: "oklch(0.68 0.085 25 / 0.15)", border: "1px solid oklch(0.68 0.085 25 / 0.3)" }}>
-              <Scissors className="w-7 h-7" style={{ color: "oklch(0.68 0.085 25)" }} />
-            </div>
-            <div className="text-center">
-              <h1 className="text-3xl font-serif text-white tracking-wide">Atelier</h1>
-              <p className="text-xs tracking-[0.25em] uppercase mt-1" style={{ color: "oklch(0.68 0.085 25)" }}>
-                Gestão de Salão
-              </p>
-            </div>
-          </div>
-
-          <div className="w-full h-px" style={{ background: "oklch(0.68 0.085 25 / 0.2)" }} />
-
-          <div className="text-center space-y-2">
-            <p className="text-white/80 text-sm leading-relaxed">
-              Acesse o sistema de gestão do seu salão de beleza
-            </p>
-          </div>
-
-          <Button
-            onClick={() => { window.location.href = getLoginUrl(); }}
-            className="w-full h-11 text-sm font-medium tracking-wide"
-            style={{
-              background: "oklch(0.68 0.085 25)",
-              color: "oklch(0.14 0.01 60)",
-            }}
-          >
-            Entrar no Sistema
-          </Button>
-        </div>
-      </div>
-    );
+    return <DashboardLayoutSkeleton />;
   }
 
   return (

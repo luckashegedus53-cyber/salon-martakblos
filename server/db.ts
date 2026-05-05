@@ -78,6 +78,41 @@ export async function getAllUsers() {
   return db.select().from(users).orderBy(desc(users.createdAt));
 }
 
+export async function getUserByUsername(username: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
+  return result[0];
+}
+
+export async function createLocalUser(data: {
+  username: string;
+  passwordHash: string;
+  name: string;
+  role: "admin" | "user";
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  // openId único para usuários locais
+  const openId = `local:${data.username}`;
+  await db.insert(users).values({
+    openId,
+    username: data.username,
+    passwordHash: data.passwordHash,
+    name: data.name,
+    role: data.role,
+    loginMethod: "local",
+    lastSignedIn: new Date(),
+  }).onDuplicateKeyUpdate({
+    set: {
+      passwordHash: data.passwordHash,
+      name: data.name,
+      role: data.role,
+    },
+  });
+  return getUserByUsername(data.username);
+}
+
 // ─── Professionals ────────────────────────────────────────────────────────────
 
 export async function getProfessionals(activeOnly = true) {

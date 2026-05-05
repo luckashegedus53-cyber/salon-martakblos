@@ -58,3 +58,15 @@
 - [x] Bloquear acesso ao dashboard para perfil Profissional (redirecionar para agenda)
 - [x] Corrigir schema Drizzle: professionalId nullable em commission_rules
 - [x] Corrigir erros TypeScript após mudança de schema (CommissionsPage + db.ts)
+
+## Sistema de Login Próprio (usuário + senha)
+- [x] Adicionar campos `username` e `passwordHash` na tabela `users` do schema Drizzle
+- [x] Criar endpoint tRPC `auth.login` (verifica username/senha, cria sessão JWT)
+- [x] Criar endpoint tRPC `auth.logout` (limpa cookie de sessão)
+- [x] Criar endpoint tRPC `auth.me` baseado na sessão JWT própria
+- [x] Criar tela de login elegante com campos usuário e senha
+- [x] Remover dependência do OAuth Manus do frontend (substituir por login próprio)
+- [x] Adaptar DashboardLayout para usar o novo sistema de auth
+- [x] Cadastrar admin: login=admin, senha=admin123, role=admin
+- [x] Cadastrar profissionais: Marta/marta, Bia/bia, Glei/glei, Janaina/janaina, Maysa/maysa, Viviane/viviane (role=user)
+- [x] Garantir que profissionais não vejam Dashboard Financeiro no menu

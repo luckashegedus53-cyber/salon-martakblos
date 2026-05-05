@@ -1,11 +1,14 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { COOKIE_NAME } from "@shared/const";
+import bcrypt from "bcryptjs";
+import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { sdk } from "./_core/sdk";
 import {
   createAppointment,
+  createLocalUser,
   createProfessional,
   createService,
   deleteCommissionRule,
@@ -19,6 +22,7 @@ import {
   getProfessionals,
   getServiceById,
   getServices,
+  getUserByUsername,
   resolveCommissionPct,
   updateAppointment,
   updateAppointmentStatus,
@@ -280,17 +284,42 @@ const financialRouter = router({
   }),
 });
 
+// ─── Auth Router (login próprio com usuário + senha) ────────────────────────────
+const authRouter = router({
+  me: publicProcedure.query((opts) => opts.ctx.user),
+
+  login: publicProcedure
+    .input(z.object({ username: z.string().min(1), password: z.string().min(1) }))
+    .mutation(async ({ input, ctx }) => {
+      const user = await getUserByUsername(input.username.toLowerCase().trim());
+      if (!user || !user.passwordHash) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Usuário ou senha inválidos." });
+      }
+      const valid = await bcrypt.compare(input.password, user.passwordHash);
+      if (!valid) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Usuário ou senha inválidos." });
+      }
+      // Criar sessão JWT reutilizando o sdk existente
+      const sessionToken = await sdk.createSessionToken(user.openId, {
+        name: user.name || user.username || "",
+        expiresInMs: ONE_YEAR_MS,
+      });
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+      return { success: true, user: { id: user.id, name: user.name, role: user.role } };
+    }),
+
+  logout: publicProcedure.mutation(({ ctx }) => {
+    const cookieOptions = getSessionCookieOptions(ctx.req);
+    ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+    return { success: true } as const;
+  }),
+});
+
 // ─── App Router ───────────────────────────────────────────────────────────────
 export const appRouter = router({
   system: systemRouter,
-  auth: router({
-    me: publicProcedure.query((opts) => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return { success: true } as const;
-    }),
-  }),
+  auth: authRouter,
   professionals: professionalsRouter,
   services: servicesRouter,
   commission: commissionRouter,
