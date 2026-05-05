@@ -29,21 +29,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
+import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   addDays,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
   format,
   isSameDay,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  isToday,
   isSameMonth,
+  isToday,
+  startOfMonth,
+  startOfWeek,
+  subDays,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -52,20 +53,18 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  DollarSign,
   Filter,
   List,
   Loader2,
-  Phone,
   Plus,
   Scissors,
-  User,
   XCircle,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import { cn } from "@/lib/utils";
 
 const appointmentSchema = z.object({
   clientName: z.string().min(1, "Nome do cliente é obrigatório"),
@@ -85,27 +84,34 @@ const STATUS_CONFIG = {
   cancelled: { label: "Cancelado", className: "status-cancelled", icon: XCircle },
 };
 
-type ViewMode = "calendar" | "list";
+// Horários da agenda física (08:00 às 21:30, a cada 30 min)
+const TIME_SLOTS = Array.from({ length: 28 }, (_, i) => {
+  const totalMinutes = 8 * 60 + i * 30;
+  const h = Math.floor(totalMinutes / 60).toString().padStart(2, "0");
+  const m = (totalMinutes % 60).toString().padStart(2, "0");
+  return `${h}:${m}`;
+});
+
+type ViewMode = "book" | "calendar" | "list";
 
 export default function AppointmentsPage() {
   const { user } = useAuth();
-  const [viewMode, setViewMode] = useState<ViewMode>("calendar");
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+  const [viewMode, setViewMode] = useState<ViewMode>("book");
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [filterProfessionalId, setFilterProfessionalId] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [showNewModal, setShowNewModal] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [prefilledTime, setPrefilledTime] = useState<string>("");
 
   const utils = trpc.useUtils();
 
-  // Fetch data
   const { data: professionals = [] } = trpc.professionals.list.useQuery({ activeOnly: true });
   const { data: services = [] } = trpc.services.list.useQuery({ activeOnly: true });
 
-  const startDate = startOfMonth(currentMonth);
-  const endDate = endOfMonth(currentMonth);
+  const startDate = startOfMonth(currentDate);
+  const endDate = endOfMonth(currentDate);
 
   const { data: appointments = [], isLoading } = trpc.appointments.list.useQuery({
     professionalId: filterProfessionalId !== "all" ? parseInt(filterProfessionalId) : undefined,
@@ -114,7 +120,6 @@ export default function AppointmentsPage() {
     status: filterStatus !== "all" ? (filterStatus as "scheduled" | "completed" | "cancelled") : undefined,
   });
 
-  // Mutations
   const createMutation = trpc.appointments.create.useMutation({
     onSuccess: () => {
       toast.success("Agendamento criado com sucesso!");
@@ -150,7 +155,6 @@ export default function AppointmentsPage() {
     const [hours, minutes] = values.time.split(":").map(Number);
     const scheduledAt = new Date(baseDate);
     scheduledAt.setHours(hours!, minutes!, 0, 0);
-
     createMutation.mutate({
       clientName: values.clientName,
       clientPhone: values.clientPhone || null,
@@ -161,40 +165,65 @@ export default function AppointmentsPage() {
     });
   };
 
+  const openNewModal = (time?: string) => {
+    form.reset({
+      clientName: "",
+      clientPhone: "",
+      professionalId: "",
+      serviceId: "",
+      time: time ?? "09:00",
+      notes: "",
+      date: selectedDate,
+    });
+    if (time) setPrefilledTime(time);
+    setShowNewModal(true);
+  };
+
   // Calendar grid
   const calendarDays = useMemo(() => {
-    const start = startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 0 });
-    const end = endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 0 });
+    const start = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 0 });
+    const end = endOfWeek(endOfMonth(currentDate), { weekStartsOn: 0 });
     return eachDayOfInterval({ start, end });
-  }, [currentMonth]);
+  }, [currentDate]);
 
   const getAppointmentsForDay = (day: Date) =>
     appointments.filter((a) => isSameDay(new Date(a.scheduledAt), day));
 
-  const selectedDayAppointments = selectedDate
-    ? appointments.filter((a) => isSameDay(new Date(a.scheduledAt), selectedDate))
-    : [];
+  const selectedDayAppointments = appointments
+    .filter((a) => isSameDay(new Date(a.scheduledAt), selectedDate))
+    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
 
   const getProfessionalName = (id: number) =>
     professionals.find((p) => p.id === id)?.name ?? "—";
   const getServiceName = (id: number) =>
     services.find((s) => s.id === id)?.name ?? "—";
-  const getServicePrice = (id: number) =>
-    services.find((s) => s.id === id)?.price ?? "0";
+
+  const formatCurrency = (val: string | number) =>
+    `R$ ${Number(val).toFixed(2).replace(".", ",")}`;
 
   const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
+  // Profissionais a exibir no livro (filtro)
+  const visibleProfessionals = filterProfessionalId !== "all"
+    ? professionals.filter((p) => p.id === parseInt(filterProfessionalId))
+    : professionals;
+
+  // Total do dia
+  const dayTotal = selectedDayAppointments
+    .filter((a) => a.status !== "cancelled")
+    .reduce((sum, a) => sum + Number(a.servicePrice), 0);
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 max-w-full">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-serif text-foreground">Agenda</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {format(currentMonth, "MMMM 'de' yyyy", { locale: ptBR })}
+            {format(selectedDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
@@ -204,12 +233,24 @@ export default function AppointmentsPage() {
             <Filter className="h-4 w-4" />
             Filtros
           </Button>
+          {/* View toggle */}
           <div className="flex border rounded-lg overflow-hidden">
+            <Button
+              variant={viewMode === "book" ? "default" : "ghost"}
+              size="sm"
+              className="rounded-none gap-1 text-xs px-3"
+              onClick={() => setViewMode("book")}
+              title="Livro de agendamentos"
+            >
+              <Scissors className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Livro</span>
+            </Button>
             <Button
               variant={viewMode === "calendar" ? "default" : "ghost"}
               size="sm"
               className="rounded-none"
               onClick={() => setViewMode("calendar")}
+              title="Calendário"
             >
               <CalendarDays className="h-4 w-4" />
             </Button>
@@ -218,11 +259,12 @@ export default function AppointmentsPage() {
               size="sm"
               className="rounded-none"
               onClick={() => setViewMode("list")}
+              title="Lista"
             >
               <List className="h-4 w-4" />
             </Button>
           </div>
-          <Button onClick={() => setShowNewModal(true)} className="gap-2">
+          <Button onClick={() => openNewModal()} className="gap-2">
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Novo Agendamento</span>
             <span className="sm:hidden">Novo</span>
@@ -272,24 +314,264 @@ export default function AppointmentsPage() {
         </div>
       )}
 
-      {viewMode === "calendar" ? (
+      {/* ─── BOOK VIEW (Livro de agendamentos) ─── */}
+      {viewMode === "book" && (
+        <div className="space-y-4">
+          {/* Date navigation */}
+          <div className="flex items-center justify-between bg-card rounded-xl border px-5 py-3">
+            <Button variant="ghost" size="icon" onClick={() => setSelectedDate(d => subDays(d, 1))}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="text-center">
+              <p className="font-serif text-lg capitalize">
+                {format(selectedDate, "EEEE", { locale: ptBR })}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              </p>
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => setSelectedDate(d => addDays(d, 1))}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Summary bar */}
+          <div className="flex items-center gap-4 px-5 py-3 bg-card rounded-xl border">
+            <div className="flex items-center gap-2 text-sm">
+              <CalendarDays className="h-4 w-4 text-primary" />
+              <span className="text-muted-foreground">Atendimentos:</span>
+              <span className="font-semibold">{selectedDayAppointments.filter(a => a.status !== "cancelled").length}</span>
+            </div>
+            <div className="h-4 w-px bg-border" />
+            <div className="flex items-center gap-2 text-sm">
+              <DollarSign className="h-4 w-4 text-primary" />
+              <span className="text-muted-foreground">Faturamento do dia:</span>
+              <span className="font-semibold text-primary">{formatCurrency(dayTotal)}</span>
+            </div>
+            <div className="ml-auto">
+              <Button size="sm" className="gap-1.5" onClick={() => openNewModal()}>
+                <Plus className="h-3.5 w-3.5" />
+                Agendar
+              </Button>
+            </div>
+          </div>
+
+          {/* Book table */}
+          {isLoading ? (
+            <div className="flex items-center justify-center h-40 bg-card rounded-xl border">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : visibleProfessionals.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 bg-card rounded-xl border text-center">
+              <Scissors className="h-12 w-12 text-muted-foreground/30 mb-3" />
+              <p className="text-muted-foreground">Nenhuma profissional cadastrada</p>
+            </div>
+          ) : (
+            <div className="bg-card rounded-xl border shadow-sm overflow-x-auto">
+              <table className="w-full text-sm border-collapse min-w-[600px]">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground w-20 border-r">
+                      Hora
+                    </th>
+                    {visibleProfessionals.map((prof) => (
+                      <th
+                        key={prof.id}
+                        colSpan={3}
+                        className="px-3 py-3 text-center font-serif font-semibold text-foreground border-r last:border-r-0"
+                      >
+                        {prof.name}
+                        {prof.specialty && (
+                          <span className="block text-xs font-normal text-muted-foreground font-sans">
+                            {prof.specialty}
+                          </span>
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                  <tr className="border-b bg-muted/20 text-xs text-muted-foreground">
+                    <th className="px-4 py-2 border-r" />
+                    {visibleProfessionals.map((prof) => (
+                      <>
+                        <th key={`${prof.id}-cliente`} className="px-3 py-2 text-left font-medium w-32">
+                          Cliente
+                        </th>
+                        <th key={`${prof.id}-servico`} className="px-3 py-2 text-left font-medium w-36">
+                          Serviço
+                        </th>
+                        <th key={`${prof.id}-valor`} className="px-3 py-2 text-right font-medium w-24 border-r last:border-r-0">
+                          Valor
+                        </th>
+                      </>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {TIME_SLOTS.map((slot) => {
+                    const [slotH, slotM] = slot.split(":").map(Number);
+                    const hasAny = visibleProfessionals.some((prof) =>
+                      selectedDayAppointments.some((a) => {
+                        const d = new Date(a.scheduledAt);
+                        return a.professionalId === prof.id &&
+                          d.getHours() === slotH && d.getMinutes() === slotM;
+                      })
+                    );
+
+                    return (
+                      <tr
+                        key={slot}
+                        className={cn(
+                          "border-b last:border-b-0 transition-colors",
+                          hasAny ? "bg-accent/10" : "hover:bg-muted/20"
+                        )}
+                      >
+                        {/* Hora */}
+                        <td className="px-4 py-2.5 border-r">
+                          <span className={cn(
+                            "font-mono text-xs font-semibold",
+                            hasAny ? "text-primary" : "text-muted-foreground"
+                          )}>
+                            {slot}
+                          </span>
+                        </td>
+
+                        {/* Células por profissional */}
+                        {visibleProfessionals.map((prof) => {
+                          const appt = selectedDayAppointments.find((a) => {
+                            const d = new Date(a.scheduledAt);
+                            return a.professionalId === prof.id &&
+                              d.getHours() === slotH && d.getMinutes() === slotM;
+                          });
+
+                          if (!appt) {
+                            return (
+                              <>
+                                <td
+                                  key={`${prof.id}-empty-c`}
+                                  colSpan={3}
+                                  className="px-3 py-2.5 border-r last:border-r-0 cursor-pointer group"
+                                  onClick={() => openNewModal(slot)}
+                                >
+                                  <span className="text-xs text-muted-foreground/0 group-hover:text-muted-foreground/50 transition-colors select-none">
+                                    + agendar
+                                  </span>
+                                </td>
+                              </>
+                            );
+                          }
+
+                          const statusCfg = STATUS_CONFIG[appt.status];
+                          return (
+                            <>
+                              {/* Cliente */}
+                              <td key={`${appt.id}-c`} className="px-3 py-2.5 max-w-[130px]">
+                                <div className="flex flex-col">
+                                  <span className={cn(
+                                    "font-medium text-sm truncate",
+                                    appt.status === "cancelled" && "line-through text-muted-foreground"
+                                  )}>
+                                    {appt.clientName}
+                                  </span>
+                                  <span className={cn(
+                                    "text-[10px] px-1.5 py-0.5 rounded-full w-fit mt-0.5",
+                                    statusCfg.className
+                                  )}>
+                                    {statusCfg.label}
+                                  </span>
+                                </div>
+                              </td>
+                              {/* Serviço */}
+                              <td key={`${appt.id}-s`} className="px-3 py-2.5 max-w-[140px]">
+                                <span className={cn(
+                                  "text-xs text-muted-foreground truncate block",
+                                  appt.status === "cancelled" && "line-through"
+                                )}>
+                                  {getServiceName(appt.serviceId)}
+                                </span>
+                              </td>
+                              {/* Valor + ações */}
+                              <td key={`${appt.id}-v`} className="px-3 py-2.5 border-r last:border-r-0">
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className={cn(
+                                    "text-sm font-semibold text-primary whitespace-nowrap",
+                                    appt.status === "cancelled" && "line-through text-muted-foreground"
+                                  )}>
+                                    {formatCurrency(appt.servicePrice)}
+                                  </span>
+                                  {appt.status === "scheduled" && (
+                                    <div className="flex gap-0.5 shrink-0">
+                                      <button
+                                        title="Concluir"
+                                        onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "completed" })}
+                                        className="p-1 rounded text-green-600 hover:bg-green-50 transition-colors"
+                                      >
+                                        <CheckCircle2 className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        title="Cancelar"
+                                        onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "cancelled" })}
+                                        className="p-1 rounded text-red-500 hover:bg-red-50 transition-colors"
+                                      >
+                                        <XCircle className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                {/* Footer totals */}
+                <tfoot>
+                  <tr className="border-t bg-muted/30">
+                    <td className="px-4 py-3 text-xs font-semibold text-muted-foreground border-r">
+                      Total
+                    </td>
+                    {visibleProfessionals.map((prof) => {
+                      const profTotal = selectedDayAppointments
+                        .filter((a) => a.professionalId === prof.id && a.status !== "cancelled")
+                        .reduce((sum, a) => sum + Number(a.servicePrice), 0);
+                      const profCount = selectedDayAppointments
+                        .filter((a) => a.professionalId === prof.id && a.status !== "cancelled").length;
+                      return (
+                        <>
+                          <td key={`${prof.id}-tot-c`} className="px-3 py-3 text-xs text-muted-foreground">
+                            {profCount} atend.
+                          </td>
+                          <td key={`${prof.id}-tot-s`} className="px-3 py-3" />
+                          <td key={`${prof.id}-tot-v`} className="px-3 py-3 text-right font-bold text-primary border-r last:border-r-0">
+                            {formatCurrency(profTotal)}
+                          </td>
+                        </>
+                      );
+                    })}
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── CALENDAR VIEW ─── */}
+      {viewMode === "calendar" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Calendar */}
           <div className="lg:col-span-2 bg-card rounded-xl border shadow-sm overflow-hidden">
-            {/* Month navigation */}
             <div className="flex items-center justify-between px-6 py-4 border-b">
-              <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth() - 1))}>
+              <Button variant="ghost" size="icon" onClick={() => setCurrentDate(m => new Date(m.getFullYear(), m.getMonth() - 1))}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <h2 className="font-serif text-xl capitalize">
-                {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
+                {format(currentDate, "MMMM yyyy", { locale: ptBR })}
               </h2>
-              <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth() + 1))}>
+              <Button variant="ghost" size="icon" onClick={() => setCurrentDate(m => new Date(m.getFullYear(), m.getMonth() + 1))}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
-
-            {/* Week days header */}
             <div className="grid grid-cols-7 border-b">
               {weekDays.map((d) => (
                 <div key={d} className="py-2 text-center text-xs font-medium text-muted-foreground tracking-wide">
@@ -297,8 +579,6 @@ export default function AppointmentsPage() {
                 </div>
               ))}
             </div>
-
-            {/* Calendar grid */}
             {isLoading ? (
               <div className="flex items-center justify-center h-64">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -307,14 +587,13 @@ export default function AppointmentsPage() {
               <div className="grid grid-cols-7">
                 {calendarDays.map((day, idx) => {
                   const dayAppts = getAppointmentsForDay(day);
-                  const isSelected = selectedDate && isSameDay(day, selectedDate);
-                  const isCurrentMonth = isSameMonth(day, currentMonth);
+                  const isSelected = isSameDay(day, selectedDate);
+                  const isCurrentMonth = isSameMonth(day, currentDate);
                   const todayDay = isToday(day);
-
                   return (
                     <div
                       key={idx}
-                      onClick={() => setSelectedDate(day)}
+                      onClick={() => { setSelectedDate(day); }}
                       className={cn(
                         "min-h-[80px] p-1.5 border-b border-r cursor-pointer transition-colors",
                         !isCurrentMonth && "opacity-40 bg-muted/30",
@@ -360,112 +639,93 @@ export default function AppointmentsPage() {
           <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b">
               <h3 className="font-serif text-lg">
-                {selectedDate
-                  ? format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR })
-                  : "Selecione um dia"}
+                {format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
               </h3>
-              {selectedDate && (
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  {selectedDayAppointments.length} atendimento{selectedDayAppointments.length !== 1 ? "s" : ""}
-                </p>
-              )}
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {selectedDayAppointments.length} atendimento{selectedDayAppointments.length !== 1 ? "s" : ""}
+              </p>
             </div>
             <div className="overflow-y-auto max-h-[500px]">
               {selectedDayAppointments.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center px-4">
                   <CalendarDays className="h-10 w-10 text-muted-foreground/30 mb-3" />
                   <p className="text-sm text-muted-foreground">Nenhum agendamento neste dia</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-4 gap-2"
-                    onClick={() => { form.setValue("date", selectedDate!); setShowNewModal(true); }}
-                  >
+                  <Button variant="outline" size="sm" className="mt-4 gap-2" onClick={() => openNewModal()}>
                     <Plus className="h-3 w-3" />
                     Agendar
                   </Button>
                 </div>
               ) : (
                 <div className="divide-y">
-                  {selectedDayAppointments
-                    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
-                    .map((appt) => {
-                      const status = STATUS_CONFIG[appt.status];
-                      return (
-                        <div key={appt.id} className="p-4 hover:bg-muted/30 transition-colors">
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <div>
-                              <p className="font-medium text-sm">{appt.clientName}</p>
-                              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                                <Clock className="h-3 w-3" />
-                                {format(new Date(appt.scheduledAt), "HH:mm")}
-                              </p>
-                            </div>
-                            <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", status.className)}>
-                              {status.label}
-                            </span>
-                          </div>
-                          <div className="space-y-1 text-xs text-muted-foreground">
-                            <p className="flex items-center gap-1.5">
-                              <Scissors className="h-3 w-3 shrink-0" />
-                              {getServiceName(appt.serviceId)}
-                              <span className="ml-auto font-medium text-foreground">
-                                R$ {Number(appt.servicePrice).toFixed(2).replace(".", ",")}
-                              </span>
+                  {selectedDayAppointments.map((appt) => {
+                    const status = STATUS_CONFIG[appt.status];
+                    return (
+                      <div key={appt.id} className="p-4 hover:bg-muted/30 transition-colors">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div>
+                            <p className="font-medium text-sm">{appt.clientName}</p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <Clock className="h-3 w-3" />
+                              {format(new Date(appt.scheduledAt), "HH:mm")}
                             </p>
-                            <p className="flex items-center gap-1.5">
-                              <User className="h-3 w-3 shrink-0" />
-                              {getProfessionalName(appt.professionalId)}
-                            </p>
-                            {appt.clientPhone && (
-                              <p className="flex items-center gap-1.5">
-                                <Phone className="h-3 w-3 shrink-0" />
-                                {appt.clientPhone}
-                              </p>
-                            )}
                           </div>
-                          {appt.status === "scheduled" && (
-                            <div className="flex gap-2 mt-3">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="flex-1 h-7 text-xs gap-1 text-green-700 border-green-200 hover:bg-green-50"
-                                onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "completed" })}
-                              >
-                                <CheckCircle2 className="h-3 w-3" />
-                                Concluir
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="flex-1 h-7 text-xs gap-1 text-red-600 border-red-200 hover:bg-red-50"
-                                onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "cancelled" })}
-                              >
-                                <XCircle className="h-3 w-3" />
-                                Cancelar
-                              </Button>
-                            </div>
-                          )}
+                          <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", status.className)}>
+                            {status.label}
+                          </span>
                         </div>
-                      );
-                    })}
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          <p className="flex items-center gap-1.5">
+                            <Scissors className="h-3 w-3 shrink-0" />
+                            <span className="flex-1">{getServiceName(appt.serviceId)}</span>
+                            <span className="font-semibold text-primary">
+                              {formatCurrency(appt.servicePrice)}
+                            </span>
+                          </p>
+                          <p className="flex items-center gap-1.5">
+                            <span className="text-muted-foreground/60">por</span>
+                            {getProfessionalName(appt.professionalId)}
+                          </p>
+                        </div>
+                        {appt.status === "scheduled" && (
+                          <div className="flex gap-2 mt-3">
+                            <Button
+                              size="sm" variant="outline"
+                              className="flex-1 h-7 text-xs gap-1 text-green-700 border-green-200 hover:bg-green-50"
+                              onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "completed" })}
+                            >
+                              <CheckCircle2 className="h-3 w-3" /> Concluir
+                            </Button>
+                            <Button
+                              size="sm" variant="outline"
+                              className="flex-1 h-7 text-xs gap-1 text-red-600 border-red-200 hover:bg-red-50"
+                              onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "cancelled" })}
+                            >
+                              <XCircle className="h-3 w-3" /> Cancelar
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
           </div>
         </div>
-      ) : (
-        /* List view */
+      )}
+
+      {/* ─── LIST VIEW ─── */}
+      {viewMode === "list" && (
         <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b flex items-center justify-between">
-            <h2 className="font-serif text-xl">
-              {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
+            <h2 className="font-serif text-xl capitalize">
+              {format(currentDate, "MMMM yyyy", { locale: ptBR })}
             </h2>
             <div className="flex gap-2">
-              <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth() - 1))}>
+              <Button variant="ghost" size="icon" onClick={() => setCurrentDate(m => new Date(m.getFullYear(), m.getMonth() - 1))}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth() + 1))}>
+              <Button variant="ghost" size="icon" onClick={() => setCurrentDate(m => new Date(m.getFullYear(), m.getMonth() + 1))}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
@@ -480,62 +740,70 @@ export default function AppointmentsPage() {
               <p className="text-muted-foreground">Nenhum agendamento encontrado</p>
             </div>
           ) : (
-            <div className="divide-y">
-              {appointments
-                .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
-                .map((appt) => {
-                  const status = STATUS_CONFIG[appt.status];
-                  return (
-                    <div key={appt.id} className="flex items-center gap-4 px-6 py-4 hover:bg-muted/30 transition-colors">
-                      <div className="text-center min-w-[48px]">
-                        <p className="text-xs text-muted-foreground">
-                          {format(new Date(appt.scheduledAt), "dd/MM")}
-                        </p>
-                        <p className="text-sm font-medium">
-                          {format(new Date(appt.scheduledAt), "HH:mm")}
-                        </p>
-                      </div>
-                      <Separator orientation="vertical" className="h-10" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{appt.clientName}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {getServiceName(appt.serviceId)} · {getProfessionalName(appt.professionalId)}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-medium">
-                          R$ {Number(appt.servicePrice).toFixed(2).replace(".", ",")}
-                        </p>
-                        <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", status.className)}>
-                          {status.label}
-                        </span>
-                      </div>
-                      {appt.status === "scheduled" && (
-                        <div className="flex gap-1 shrink-0">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-green-600 hover:bg-green-50"
-                            onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "completed" })}
-                            title="Concluir"
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-red-500 hover:bg-red-50"
-                            onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "cancelled" })}
-                            title="Cancelar"
-                          >
-                            <XCircle className="h-4 w-4" />
-                          </Button>
+            <>
+              {/* Table header */}
+              <div className="grid grid-cols-[80px_1fr_1fr_100px_120px_80px] gap-0 border-b bg-muted/30 text-xs font-medium text-muted-foreground px-6 py-2">
+                <span>Data/Hora</span>
+                <span>Cliente</span>
+                <span>Serviço</span>
+                <span>Profissional</span>
+                <span className="text-right">Valor</span>
+                <span className="text-center">Status</span>
+              </div>
+              <div className="divide-y">
+                {appointments
+                  .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
+                  .map((appt) => {
+                    const status = STATUS_CONFIG[appt.status];
+                    return (
+                      <div key={appt.id} className="grid grid-cols-[80px_1fr_1fr_100px_120px_80px] gap-0 items-center px-6 py-3 hover:bg-muted/20 transition-colors">
+                        <div>
+                          <p className="text-xs text-muted-foreground">{format(new Date(appt.scheduledAt), "dd/MM")}</p>
+                          <p className="text-sm font-medium">{format(new Date(appt.scheduledAt), "HH:mm")}</p>
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-            </div>
+                        <p className={cn("text-sm font-medium truncate pr-2", appt.status === "cancelled" && "line-through text-muted-foreground")}>
+                          {appt.clientName}
+                        </p>
+                        <p className={cn("text-xs text-muted-foreground truncate pr-2", appt.status === "cancelled" && "line-through")}>
+                          {getServiceName(appt.serviceId)}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate pr-2">
+                          {getProfessionalName(appt.professionalId)}
+                        </p>
+                        <p className={cn(
+                          "text-sm font-semibold text-right pr-2",
+                          appt.status === "cancelled" ? "line-through text-muted-foreground" : "text-primary"
+                        )}>
+                          {formatCurrency(appt.servicePrice)}
+                        </p>
+                        <div className="flex items-center justify-center gap-1">
+                          <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", status.className)}>
+                            {status.label}
+                          </span>
+                          {appt.status === "scheduled" && (
+                            <div className="flex gap-0.5 ml-1">
+                              <button
+                                title="Concluir"
+                                onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "completed" })}
+                                className="p-1 rounded text-green-600 hover:bg-green-50 transition-colors"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                title="Cancelar"
+                                onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "cancelled" })}
+                                className="p-1 rounded text-red-500 hover:bg-red-50 transition-colors"
+                              >
+                                <XCircle className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </>
           )}
         </div>
       )}
@@ -555,9 +823,7 @@ export default function AppointmentsPage() {
                   render={({ field }) => (
                     <FormItem className="col-span-2">
                       <FormLabel>Nome do Cliente</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Nome completo" {...field} />
-                      </FormControl>
+                      <FormControl><Input placeholder="Nome completo" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -568,9 +834,7 @@ export default function AppointmentsPage() {
                   render={({ field }) => (
                     <FormItem className="col-span-2">
                       <FormLabel>Telefone <span className="text-muted-foreground">(opcional)</span></FormLabel>
-                      <FormControl>
-                        <Input placeholder="(00) 00000-0000" {...field} />
-                      </FormControl>
+                      <FormControl><Input placeholder="(00) 00000-0000" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -583,9 +847,7 @@ export default function AppointmentsPage() {
                       <FormLabel>Profissional</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione" />
-                          </SelectTrigger>
+                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           {professionals.map((p) => (
@@ -605,9 +867,7 @@ export default function AppointmentsPage() {
                       <FormLabel>Serviço</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione" />
-                          </SelectTrigger>
+                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           {services.map((s) => (
@@ -659,9 +919,7 @@ export default function AppointmentsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Horário</FormLabel>
-                      <FormControl>
-                        <Input type="time" {...field} />
-                      </FormControl>
+                      <FormControl><Input type="time" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -672,9 +930,7 @@ export default function AppointmentsPage() {
                   render={({ field }) => (
                     <FormItem className="col-span-2">
                       <FormLabel>Observações <span className="text-muted-foreground">(opcional)</span></FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Informações adicionais..." rows={2} {...field} />
-                      </FormControl>
+                      <FormControl><Textarea placeholder="Informações adicionais..." rows={2} {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
