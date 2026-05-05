@@ -169,12 +169,15 @@ export async function upsertCommissionRule(data: InsertCommissionRule) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   // If serviceId is null, it's a general rule for the professional
+  const profCondition = data.professionalId != null
+    ? eq(commissionRules.professionalId, data.professionalId)
+    : isNull(commissionRules.professionalId);
   const existing = await db
     .select()
     .from(commissionRules)
     .where(
       and(
-        eq(commissionRules.professionalId, data.professionalId),
+        profCondition,
         data.serviceId != null
           ? eq(commissionRules.serviceId, data.serviceId)
           : isNull(commissionRules.serviceId)

@@ -25,7 +25,8 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useLocation } from "wouter";
 
 const fmt = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -139,7 +140,15 @@ function ProfessionalCommissionTable({
 export default function DashboardPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
+  const [, setLocation] = useLocation();
   const [monthOffset, setMonthOffset] = useState(0);
+
+  // Redirecionar profissionais para a agenda automaticamente
+  useEffect(() => {
+    if (user && !isAdmin) {
+      setLocation("/");
+    }
+  }, [user, isAdmin, setLocation]);
 
   const currentMonth = useMemo(() => {
     const d = new Date();

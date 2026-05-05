@@ -86,8 +86,8 @@ export default function CommissionsPage() {
     });
   };
 
-  const getProfessionalName = (id: number) =>
-    professionals.find((p) => p.id === id)?.name ?? "—";
+  const getProfessionalName = (id: number | null | undefined) =>
+    id != null ? (professionals.find((p) => p.id === id)?.name ?? "—") : "Padrão por Serviço";
   const getServiceName = (id: number | null) =>
     id ? (services.find((s) => s.id === id)?.name ?? "—") : null;
 

@@ -51,3 +51,10 @@
 - [x] Testes de cálculo de comissão
 - [x] Testes de controle de acesso (admin vs profissional)
 - [x] 15/15 testes passando
+
+## Atualizações — Comissões e Dashboard
+- [x] Configurar comissões por serviço: 50% (escova, coloração, luzes, botox, mega, selagem, manutenção mega), 60% (pé, mão, SPA pés, buço, sobrancelha, sobranc c/henna, nariz, esmaltação), 70% (gel, manutenção gel)
+- [x] Criar/refatorar DashboardPage com visões diária, semanal e mensal exclusivas para Admin
+- [x] Bloquear acesso ao dashboard para perfil Profissional (redirecionar para agenda)
+- [x] Corrigir schema Drizzle: professionalId nullable em commission_rules
+- [x] Corrigir erros TypeScript após mudança de schema (CommissionsPage + db.ts)

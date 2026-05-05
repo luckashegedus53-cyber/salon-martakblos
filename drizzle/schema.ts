@@ -61,7 +61,7 @@ export type InsertService = typeof services.$inferInsert;
 // Regras de comissão específicas: profissional + serviço (mais específica vence)
 export const commissionRules = mysqlTable("commission_rules", {
   id: int("id").autoincrement().primaryKey(),
-  professionalId: int("professionalId").notNull(),
+  professionalId: int("professionalId"), // null = regra padrão por serviço (sem profissional específico)
   serviceId: int("serviceId"), // null = regra se aplica a todos os serviços deste profissional
   commissionPct: decimal("commissionPct", { precision: 5, scale: 2 }).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
