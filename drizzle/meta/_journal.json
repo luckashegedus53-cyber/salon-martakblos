@@ -22,6 +22,13 @@
       "when": 1778022603840,
       "tag": "0002_strange_susan_delgado",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1778111561002,
+      "tag": "0003_clear_karma",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,7 @@ import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { sdk } from "./_core/sdk";
 import {
   createAppointment,
+  createAppointmentWithServices,
   createLocalUser,
   createProfessional,
   createService,
@@ -15,6 +16,8 @@ import {
   deleteProfessional,
   deleteService,
   getAppointmentById,
+  getAppointmentServices,
+  getAppointmentServicesForMany,
   getAppointments,
   getCommissionRules,
   getAllProfessionalsWithCommissions,
@@ -25,6 +28,7 @@ import {
   getServiceById,
   getServices,
   getUserByUsername,
+  replaceAppointmentServices,
   resolveCommissionPct,
   updateAppointment,
   updateAppointmentServicePrice,
@@ -178,29 +182,62 @@ const appointmentsRouter = router({
         clientName: z.string().min(1),
         clientPhone: z.string().optional().nullable(),
         professionalId: z.number(),
-        serviceId: z.number(),
+        // Suporte a múltiplos serviços
+        services: z.array(
+          z.object({
+            serviceId: z.number(),
+            price: z.number().positive().max(999999.99), // valor editável por serviço
+          })
+        ).min(1),
         scheduledAt: z.date(),
-        timeSlot: z.string().optional().nullable(), // horário local do usuário ex: "13:00"
+        timeSlot: z.string().optional().nullable(),
         notes: z.string().optional().nullable(),
-        servicePrice: z.number().positive().max(999999.99).optional(), // preço customizado (opcional, usa o do serviço se omitido)
       })
     )
     .mutation(async ({ input }) => {
-      const service = await getServiceById(input.serviceId);
-      if (!service) throw new TRPCError({ code: "NOT_FOUND", message: "Serviço não encontrado." });
+      // Resolver comissões e nomes para cada serviço
+      const svcItems = [];
+      let totalPrice = 0;
+      let totalCommission = 0;
+      let avgCommissionPct = 0;
+      const primaryServiceId = input.services[0]!.serviceId;
 
-      const commissionPct = await resolveCommissionPct(input.professionalId, input.serviceId);
-      const servicePrice = input.servicePrice ?? Number(service.price);
-      const commissionValue = (servicePrice * commissionPct) / 100;
+      for (const svcInput of input.services) {
+        const service = await getServiceById(svcInput.serviceId);
+        if (!service) throw new TRPCError({ code: "NOT_FOUND", message: `Serviço ${svcInput.serviceId} não encontrado.` });
+        const commissionPct = await resolveCommissionPct(input.professionalId, svcInput.serviceId);
+        const commissionValue = (svcInput.price * commissionPct) / 100;
+        totalPrice += svcInput.price;
+        totalCommission += commissionValue;
+        svcItems.push({
+          serviceId: svcInput.serviceId,
+          serviceName: service.name,
+          price: String(svcInput.price.toFixed(2)),
+          commissionPct: String(commissionPct.toFixed(2)),
+          commissionValue: String(commissionValue.toFixed(2)),
+          appointmentId: 0, // será sobrescrito
+        });
+      }
+      avgCommissionPct = totalPrice > 0 ? (totalCommission / totalPrice) * 100 : 0;
+      const servicesLabel = svcItems.map((s) => s.serviceName).join(" + ");
 
-      await createAppointment({
-        ...input,
-        servicePrice: String(servicePrice),
-        commissionPct: String(commissionPct),
-        commissionValue: String(commissionValue.toFixed(2)),
-      });
+      await createAppointmentWithServices(
+        {
+          clientName: input.clientName,
+          clientPhone: input.clientPhone ?? null,
+          professionalId: input.professionalId,
+          serviceId: primaryServiceId,
+          scheduledAt: input.scheduledAt,
+          timeSlot: input.timeSlot ?? null,
+          notes: input.notes ?? null,
+          servicePrice: String(totalPrice.toFixed(2)),
+          commissionPct: String(avgCommissionPct.toFixed(2)),
+          commissionValue: String(totalCommission.toFixed(2)),
+        },
+        svcItems
+      );
 
-      return { success: true };
+      return { success: true, servicesLabel };
     }),
 
   updateStatus: protectedProcedure
@@ -211,6 +248,11 @@ const appointmentsRouter = router({
       })
     )
     .mutation(({ input }) => updateAppointmentStatus(input.id, input.status)),
+
+  // Retorna os serviços filhos de um agendamento (múltiplos serviços)
+  getServices: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .query(({ input }) => getAppointmentServices(input.id)),
 
   updateServicePrice: adminProcedure
     .input(

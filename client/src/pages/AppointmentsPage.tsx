@@ -71,22 +71,18 @@ const appointmentSchema = z.object({
   clientName: z.string().min(1, "Nome do cliente é obrigatório"),
   clientPhone: z.string().optional(),
   professionalId: z.string().min(1, "Selecione um profissional"),
-  serviceId: z.string().min(1, "Selecione um serviço"),
-  servicePrice: z.string().min(1, "Informe o valor").refine(
-    (v) => {
-      // Aceita formato brasileiro: 1.200,00 ou 1200,00 ou 1200.00
-      const normalized = v.replace(/\./g, "").replace(",", ".");
-      const n = parseFloat(normalized);
-      return !isNaN(n) && n > 0 && n <= 999999.99;
-    },
-    { message: "Valor deve ser entre R$ 0,01 e R$ 999.999,99" }
-  ),
   date: z.date().nullable().optional(),
   time: z.string().min(1, "Informe o horário"),
   notes: z.string().optional(),
 });
 
 type AppointmentFormValues = z.infer<typeof appointmentSchema>;
+
+// Item de serviço no modal
+interface ServiceItem {
+  serviceId: string;
+  price: string; // formato brasileiro ex: "150,00"
+}
 
 const STATUS_CONFIG = {
   scheduled: { label: "Agendado", className: "status-scheduled", icon: Clock },
@@ -114,6 +110,8 @@ export default function AppointmentsPage() {
   const [showNewModal, setShowNewModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [prefilledTime, setPrefilledTime] = useState<string>("");
+  // Lista de serviços do novo agendamento
+  const [serviceItems, setServiceItems] = useState<ServiceItem[]>([{ serviceId: "", price: "" }]);
 
   const utils = trpc.useUtils();
 
@@ -173,38 +171,44 @@ export default function AppointmentsPage() {
       clientName: "",
       clientPhone: "",
       professionalId: "",
-      serviceId: "",
-      servicePrice: "",
       time: "09:00",
       notes: "",
     },
   });
 
-  // Ao mudar o serviço, preencher automaticamente o campo de valor com o preço padrão
-  const watchedServiceId = form.watch("serviceId");
-  const selectedService = services.find((s) => String(s.id) === watchedServiceId);
-
   const onSubmit = (values: AppointmentFormValues) => {
+    // Validar serviços
+    const validItems = serviceItems.filter((s) => s.serviceId && s.price);
+    if (validItems.length === 0) {
+      toast.error("Adicione pelo menos um serviço com valor.");
+      return;
+    }
+    for (const item of validItems) {
+      const normalized = item.price.replace(/\./g, "").replace(",", ".");
+      const n = parseFloat(normalized);
+      if (isNaN(n) || n <= 0 || n > 999999.99) {
+        toast.error("Valor do serviço inválido. Use o formato: 150,00");
+        return;
+      }
+    }
+
     const baseDate = values.date ?? selectedDate ?? new Date();
     const [hours, minutes] = values.time.split(":").map(Number);
-    // Construir scheduledAt usando o timezone local do browser
-    // Primeiro zeramos a hora da data base para evitar problemas com hora atual
-    // Depois aplicamos o horário selecionado no timezone local
-    // Ex: 06/05 + 09:00 local (UTC-3) → scheduledAt = 2026-05-06T12:00:00.000Z
     const scheduledAt = new Date(baseDate);
-    scheduledAt.setHours(0, 0, 0, 0); // zerar hora primeiro
-    scheduledAt.setHours(hours!, minutes!, 0, 0); // aplicar horário local
-    // Normaliza formato brasileiro (1.200,00 → 1200.00) antes de converter
-    const customPrice = parseFloat(values.servicePrice.replace(/\./g, "").replace(",", "."));
+    scheduledAt.setHours(0, 0, 0, 0);
+    scheduledAt.setHours(hours!, minutes!, 0, 0);
+
     createMutation.mutate({
       clientName: values.clientName,
       clientPhone: values.clientPhone || null,
       professionalId: parseInt(values.professionalId),
-      serviceId: parseInt(values.serviceId),
+      services: validItems.map((item) => ({
+        serviceId: parseInt(item.serviceId),
+        price: parseFloat(item.price.replace(/\./g, "").replace(",", ".")),
+      })),
       scheduledAt,
-      timeSlot: values.time, // horário local do usuário ex: "13:00"
+      timeSlot: values.time,
       notes: values.notes || null,
-      servicePrice: isNaN(customPrice) ? undefined : customPrice,
     });
   };
 
@@ -213,12 +217,11 @@ export default function AppointmentsPage() {
       clientName: "",
       clientPhone: "",
       professionalId: "",
-      serviceId: "",
-      servicePrice: "",
       time: time ?? "09:00",
       notes: "",
       date: selectedDate,
     });
+    setServiceItems([{ serviceId: "", price: "" }]);
     if (time) setPrefilledTime(time);
     setShowNewModal(true);
   };
@@ -566,7 +569,7 @@ export default function AppointmentsPage() {
                               </td>
                               {/* Serviço */}
                               <td className="px-3 py-2 overflow-hidden">
-                                <span className="text-xs text-muted-foreground truncate block">
+                                <span className="text-xs text-muted-foreground truncate block" title={getServiceName(appt.serviceId)}>
                                   {getServiceName(appt.serviceId)}
                                 </span>
                               </td>
@@ -916,60 +919,83 @@ export default function AppointmentsPage() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="serviceId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Serviço</FormLabel>
-                      <Select
-                        onValueChange={(val) => {
-                          field.onChange(val);
-                          // Preencher automaticamente o valor com o preço padrão do serviço
-                          const svc = services.find((s) => String(s.id) === val);
-                          if (svc) {
-                            form.setValue("servicePrice", Number(svc.price).toFixed(2).replace(".", ","), { shouldValidate: true });
-                          }
-                        }}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {services.map((s) => (
-                            <SelectItem key={s.id} value={String(s.id)}>
-                              {s.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
+                {/* Bloco de múltiplos serviços */}
+                <div className="col-span-2 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Serviços</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setServiceItems((prev) => [...prev, { serviceId: "", price: "" }])}
+                    >
+                      <Plus className="h-3 w-3 mr-1" /> Adicionar serviço
+                    </Button>
+                  </div>
+                  {serviceItems.map((item, idx) => (
+                    <div key={idx} className="flex gap-2 items-start">
+                      <div className="flex-1">
+                        <Select
+                          value={item.serviceId}
+                          onValueChange={(val) => {
+                            const svc = services.find((s) => String(s.id) === val);
+                            setServiceItems((prev) =>
+                              prev.map((s, i) =>
+                                i === idx
+                                  ? { ...s, serviceId: val, price: svc ? Number(svc.price).toFixed(2).replace(".", ",") : s.price }
+                                  : s
+                              )
+                            );
+                          }}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Selecione o serviço" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {services.map((s) => (
+                              <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="relative w-32">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0,00"
+                          className="pl-8 text-sm"
+                          value={item.price}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setServiceItems((prev) =>
+                              prev.map((s, i) => (i === idx ? { ...s, price: val } : s))
+                            );
+                          }}
+                        />
+                      </div>
+                      {serviceItems.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 text-destructive hover:text-destructive"
+                          onClick={() => setServiceItems((prev) => prev.filter((_, i) => i !== idx))}
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  {serviceItems.length > 1 && (
+                    <p className="text-xs text-muted-foreground text-right">
+                      Total: R$ {serviceItems
+                        .filter((s) => s.price)
+                        .reduce((acc, s) => acc + parseFloat(s.price.replace(/\./g, "").replace(",", ".") || "0"), 0)
+                        .toFixed(2).replace(".", ",")}
+                    </p>
                   )}
-                />
-                <FormField
-                  control={form.control}
-                  name="servicePrice"
-                  render={({ field }) => (
-                    <FormItem className="col-span-2">
-                      <FormLabel>Valor do Serviço</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">R$</span>
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="0,00"
-                            className="pl-10"
-                            {...field}
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                </div>
                 <FormField
                   control={form.control}
                   name="date"

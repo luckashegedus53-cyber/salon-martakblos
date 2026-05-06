@@ -95,3 +95,18 @@ export const appointments = mysqlTable("appointments", {
 
 export type Appointment = typeof appointments.$inferSelect;
 export type InsertAppointment = typeof appointments.$inferInsert;
+
+// Serviços individuais de um agendamento (suporte a múltiplos serviços)
+export const appointmentServices = mysqlTable("appointment_services", {
+  id: int("id").autoincrement().primaryKey(),
+  appointmentId: int("appointmentId").notNull(),
+  serviceId: int("serviceId").notNull(),
+  serviceName: varchar("serviceName", { length: 255 }).notNull(),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  commissionPct: decimal("commissionPct", { precision: 5, scale: 2 }).notNull(),
+  commissionValue: decimal("commissionValue", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AppointmentService = typeof appointmentServices.$inferSelect;
+export type InsertAppointmentService = typeof appointmentServices.$inferInsert;

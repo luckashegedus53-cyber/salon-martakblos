@@ -2,8 +2,10 @@ import { and, between, desc, eq, gte, isNull, lte, ne, or, sql } from "drizzle-o
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   appointments,
+  appointmentServices,
   commissionRules,
   InsertAppointment,
+  InsertAppointmentService,
   InsertCommissionRule,
   InsertProfessional,
   InsertService,
@@ -340,6 +342,96 @@ export async function createAppointment(data: InsertAppointment) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   await db.insert(appointments).values(data);
+}
+
+/**
+ * Cria um agendamento com múltiplos serviços.
+ * Insere o agendamento principal e os serviços filhos em uma transação.
+ */
+export async function createAppointmentWithServices(
+  apptData: InsertAppointment,
+  svcItems: InsertAppointmentService[]
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  // Inserir agendamento principal
+  const [result] = await db.insert(appointments).values(apptData);
+  const apptId = (result as { insertId: number }).insertId;
+  // Inserir serviços filhos
+  if (svcItems.length > 0) {
+    await db.insert(appointmentServices).values(
+      svcItems.map((s) => ({ ...s, appointmentId: apptId }))
+    );
+  }
+  return apptId;
+}
+
+/**
+ * Busca os serviços filhos de um agendamento.
+ */
+export async function getAppointmentServices(appointmentId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(appointmentServices)
+    .where(eq(appointmentServices.appointmentId, appointmentId));
+}
+
+/**
+ * Busca os serviços filhos de múltiplos agendamentos de uma vez.
+ */
+export async function getAppointmentServicesForMany(appointmentIds: number[]) {
+  const db = await getDb();
+  if (!db || appointmentIds.length === 0) return [];
+  // Usar sql`IN (...)` manual
+  const placeholders = appointmentIds.map(() => "?").join(",");
+  const rows = await db.execute(
+    sql`SELECT * FROM appointment_services WHERE appointmentId IN (${sql.raw(appointmentIds.join(","))})`
+  );
+  return rows[0] as unknown as Array<{
+    id: number;
+    appointmentId: number;
+    serviceId: number;
+    serviceName: string;
+    price: string;
+    commissionPct: string;
+    commissionValue: string;
+    createdAt: Date;
+  }>;
+}
+
+/**
+ * Substitui os serviços de um agendamento (apaga os antigos e insere os novos).
+ * Também atualiza servicePrice, commissionValue e serviceId no agendamento principal.
+ */
+export async function replaceAppointmentServices(
+  appointmentId: number,
+  svcItems: Omit<InsertAppointmentService, "appointmentId">[],
+  totalPrice: number,
+  totalCommission: number,
+  commissionPct: number,
+  primaryServiceId: number
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  // Apagar serviços antigos
+  await db.delete(appointmentServices).where(eq(appointmentServices.appointmentId, appointmentId));
+  // Inserir novos
+  if (svcItems.length > 0) {
+    await db.insert(appointmentServices).values(
+      svcItems.map((s) => ({ ...s, appointmentId }))
+    );
+  }
+  // Atualizar totais no agendamento principal
+  const label = svcItems.map((s) => s.serviceName).join(" + ");
+  await db.update(appointments).set({
+    serviceId: primaryServiceId,
+    servicePrice: String(totalPrice.toFixed(2)),
+    commissionPct: String(commissionPct.toFixed(2)),
+    commissionValue: String(totalCommission.toFixed(2)),
+  }).where(eq(appointments.id, appointmentId));
+  return label;
 }
 
 export async function updateAppointmentStatus(

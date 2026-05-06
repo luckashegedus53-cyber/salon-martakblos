@@ -100,6 +100,17 @@
 - [x] Bug: comissão R$ 778 em vez de R$ 790 — ID:64 (Corte da Glei) estava com 40% em vez de 50%; corrigido para R$ 790,00
 - [x] Bug: lucro no dashboard estava em R$ 231,00 — corrigido: agendamento id:55 (Corte da Glei) atualizado de 40% para 50%, total agora R$ 243,00
 
+## Múltiplos Serviços por Agendamento
+- [ ] Schema: criar tabela `appointment_services` (id, appointmentId, serviceId, serviceName, price, commissionPct, commissionValue)
+- [ ] Schema: adicionar coluna `servicesLabel` e `totalPrice` na tabela `appointments`
+- [ ] Migração SQL aplicada
+- [ ] db.ts: funções createAppointmentWithServices, getAppointmentsWithServices
+- [ ] routers.ts: appointments.create aceita array de serviços com valor editável
+- [ ] routers.ts: appointments.list retorna servicesLabel e totalPrice
+- [ ] AppointmentsPage: modal com campo multi-serviço (adicionar/remover, valor editável)
+- [ ] AppointmentsPage: grade exibe servicesLabel no card
+- [ ] DashboardPage: valor final = totalPrice; cards atualizados
+
 ## Deploy Standalone (VPS Hostinger)
 - [ ] Remover dependências do Manus OAuth do servidor e frontend para deploy standalone
 - [ ] Ajustar variáveis de ambiente para funcionar sem Manus (sem VITE_APP_ID, OAUTH_SERVER_URL, etc.)
