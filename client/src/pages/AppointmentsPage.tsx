@@ -73,7 +73,12 @@ const appointmentSchema = z.object({
   professionalId: z.string().min(1, "Selecione um profissional"),
   serviceId: z.string().min(1, "Selecione um serviço"),
   servicePrice: z.string().min(1, "Informe o valor").refine(
-    (v) => { const n = parseFloat(v.replace(",", ".")); return !isNaN(n) && n > 0 && n <= 999999.99; },
+    (v) => {
+      // Aceita formato brasileiro: 1.200,00 ou 1200,00 ou 1200.00
+      const normalized = v.replace(/\./g, "").replace(",", ".");
+      const n = parseFloat(normalized);
+      return !isNaN(n) && n > 0 && n <= 999999.99;
+    },
     { message: "Valor deve ser entre R$ 0,01 e R$ 999.999,99" }
   ),
   date: z.date().nullable().optional(),
@@ -189,7 +194,8 @@ export default function AppointmentsPage() {
     const scheduledAt = new Date(baseDate);
     scheduledAt.setHours(0, 0, 0, 0); // zerar hora primeiro
     scheduledAt.setHours(hours!, minutes!, 0, 0); // aplicar horário local
-    const customPrice = parseFloat(values.servicePrice.replace(",", "."));
+    // Normaliza formato brasileiro (1.200,00 → 1200.00) antes de converter
+    const customPrice = parseFloat(values.servicePrice.replace(/\./g, "").replace(",", "."));
     createMutation.mutate({
       clientName: values.clientName,
       clientPhone: values.clientPhone || null,
@@ -968,7 +974,7 @@ export default function AppointmentsPage() {
                           // Preencher automaticamente o valor com o preço padrão do serviço
                           const svc = services.find((s) => String(s.id) === val);
                           if (svc) {
-                            form.setValue("servicePrice", Number(svc.price).toFixed(2), { shouldValidate: true });
+                            form.setValue("servicePrice", Number(svc.price).toFixed(2).replace(".", ","), { shouldValidate: true });
                           }
                         }}
                         value={field.value}
@@ -998,10 +1004,8 @@ export default function AppointmentsPage() {
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">R$</span>
                           <Input
-                            type="number"
-                            min="0.01"
-                            max="999999.99"
-                            step="0.01"
+                            type="text"
+                            inputMode="decimal"
                             placeholder="0,00"
                             className="pl-10"
                             {...field}
