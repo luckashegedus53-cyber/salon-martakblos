@@ -160,7 +160,7 @@ export default function DashboardPage() {
   const monthStart = useMemo(() => startOfMonth(currentMonth), [currentMonth]);
   const monthEnd = useMemo(() => endOfMonth(currentMonth), [currentMonth]);
 
-  const [commissionPeriod, setCommissionPeriod] = useState<"week" | "month" | "custom">("month");
+  const [commissionPeriod, setCommissionPeriod] = useState<"today" | "week" | "month" | "custom">("today");
   const [customStart, setCustomStart] = useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -174,12 +174,14 @@ export default function DashboardPage() {
   });
 
   const commissionStart = useMemo(() => {
+    if (commissionPeriod === "today") return startOfDay(new Date());
     if (commissionPeriod === "week") return startOfWeek(new Date(), { weekStartsOn: 0 });
     if (commissionPeriod === "month") return startOfMonth(new Date());
     return customStart;
   }, [commissionPeriod, customStart]);
 
   const commissionEnd = useMemo(() => {
+    if (commissionPeriod === "today") return endOfDay(new Date());
     if (commissionPeriod === "week") return endOfWeek(new Date(), { weekStartsOn: 0 });
     if (commissionPeriod === "month") return endOfMonth(new Date());
     return customEnd;
@@ -464,6 +466,17 @@ export default function DashboardPage() {
             {/* Filtro de período */}
             <div className="flex items-center gap-2 flex-wrap">
               <button
+                onClick={() => setCommissionPeriod("today")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  commissionPeriod === "today"
+                    ? "text-white"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+                style={commissionPeriod === "today" ? { background: "oklch(0.58 0.09 25)" } : {}}
+              >
+                Hoje
+              </button>
+              <button
                 onClick={() => setCommissionPeriod("week")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                   commissionPeriod === "week"
@@ -563,7 +576,7 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-serif text-lg">Comissões por Profissional</h3>
                   <span className="text-xs text-muted-foreground px-2 py-1 bg-muted rounded-md">
-                    {commissionPeriod === "week" ? "Esta semana" : commissionPeriod === "month" ? format(new Date(), "MMM/yyyy", { locale: ptBR }) : `${format(commissionStart, "dd/MM")} – ${format(commissionEnd, "dd/MM/yyyy")}`}
+                    {commissionPeriod === "today" ? format(new Date(), "dd/MM/yyyy") : commissionPeriod === "week" ? "Esta semana" : commissionPeriod === "month" ? format(new Date(), "MMM/yyyy", { locale: ptBR }) : `${format(commissionStart, "dd/MM")} – ${format(commissionEnd, "dd/MM/yyyy")}`}
                   </span>
                 </div>
                 <div className="overflow-x-auto">
