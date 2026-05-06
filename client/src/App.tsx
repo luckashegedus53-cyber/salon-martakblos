@@ -15,11 +15,11 @@ import LoginPage from "./pages/LoginPage";
 function Router() {
   return (
     <Switch>
-      {/* Rota de login fora do DashboardLayout */}
+      {/* Rota de login — completamente isolada, sem DashboardLayout */}
       <Route path="/login" component={LoginPage} />
 
       {/* Rotas protegidas dentro do DashboardLayout */}
-      <Route>
+      <Route path="/">
         <DashboardLayout>
           <Switch>
             <Route path="/" component={AppointmentsPage} />
