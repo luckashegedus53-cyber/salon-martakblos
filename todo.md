@@ -87,3 +87,4 @@
 - [x] Bug: cancelar/apagar agendamento não funciona (resolvido: invalidate do cache após updateStatus + fuso horário)
 - [x] Bug: Dashboard Financeiro não reflete os agendamentos em tempo real (resolvido: filtro inclui scheduled+completed, exclui apenas cancelled; fuso horário BRT corrigido)
 - [x] Zerar saldo: apagar todos os agendamentos de teste do banco (33 agendamentos removidos)
+- [x] Verificar e corrigir comissões da Bia: removida regra genérica 50% que sobrescrevia as regras globais por serviço
