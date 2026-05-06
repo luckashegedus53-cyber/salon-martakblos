@@ -417,6 +417,58 @@ export async function getAllProfessionalsWithCommissions(startDate: Date, endDat
   }));
 }
 
+export async function getDailyAppointmentsWithDetails(startDate: Date, endDate: Date) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const rows = await db
+    .select({
+      id: appointments.id,
+      clientName: appointments.clientName,
+      clientPhone: appointments.clientPhone,
+      timeSlot: appointments.timeSlot,
+      scheduledAt: appointments.scheduledAt,
+      servicePrice: appointments.servicePrice,
+      commissionPct: appointments.commissionPct,
+      commissionValue: appointments.commissionValue,
+      status: appointments.status,
+      notes: appointments.notes,
+      professionalId: appointments.professionalId,
+      serviceId: appointments.serviceId,
+      professionalName: professionals.name,
+      serviceName: services.name,
+    })
+    .from(appointments)
+    .leftJoin(professionals, eq(appointments.professionalId, professionals.id))
+    .leftJoin(services, eq(appointments.serviceId, services.id))
+    .where(
+      and(
+        between(appointments.scheduledAt, startDate, endDate),
+        ne(appointments.status, "cancelled")
+      )
+    )
+    .orderBy(appointments.scheduledAt);
+
+  return rows;
+}
+
+export async function updateAppointmentServicePrice(
+  id: number,
+  servicePrice: number,
+  commissionPct: number
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const commissionValue = (servicePrice * commissionPct) / 100;
+  await db
+    .update(appointments)
+    .set({
+      servicePrice: String(servicePrice.toFixed(2)),
+      commissionValue: String(commissionValue.toFixed(2)),
+    })
+    .where(eq(appointments.id, id));
+}
+
 export async function getFinancialSummary(startDate: Date, endDate: Date): Promise<FinancialSummary> {
   const db = await getDb();
   if (!db) {

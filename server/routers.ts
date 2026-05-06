@@ -18,6 +18,7 @@ import {
   getAppointments,
   getCommissionRules,
   getAllProfessionalsWithCommissions,
+  getDailyAppointmentsWithDetails,
   getFinancialSummary,
   getProfessionalById,
   getProfessionals,
@@ -26,6 +27,7 @@ import {
   getUserByUsername,
   resolveCommissionPct,
   updateAppointment,
+  updateAppointmentServicePrice,
   updateAppointmentStatus,
   updateProfessional,
   updateService,
@@ -210,6 +212,21 @@ const appointmentsRouter = router({
     )
     .mutation(({ input }) => updateAppointmentStatus(input.id, input.status)),
 
+  updateServicePrice: adminProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        servicePrice: z.number().positive().max(999999.99),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const existing = await getAppointmentById(input.id);
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Agendamento não encontrado." });
+      const commissionPct = Number(existing.commissionPct);
+      await updateAppointmentServicePrice(input.id, input.servicePrice, commissionPct);
+      return { success: true };
+    }),
+
   update: protectedProcedure
     .input(
       z.object({
@@ -294,6 +311,16 @@ const financialRouter = router({
   commissions: adminProcedure
     .input(z.object({ startDate: z.date(), endDate: z.date() }))
     .query(({ input }) => getAllProfessionalsWithCommissions(input.startDate, input.endDate)),
+
+  dailyAppointments: adminProcedure.query(() => {
+    const nowUTC = new Date();
+    const BRT_OFFSET = -3 * 60 * 60 * 1000;
+    const nowBRT = new Date(nowUTC.getTime() + BRT_OFFSET);
+    const y = nowBRT.getUTCFullYear(), mo = nowBRT.getUTCMonth(), d = nowBRT.getUTCDate();
+    const start = new Date(Date.UTC(y, mo, d, 3, 0, 0)); // 00:00 BRT = 03:00 UTC
+    const end = new Date(Date.UTC(y, mo, d + 1, 2, 59, 59)); // 23:59 BRT
+    return getDailyAppointmentsWithDetails(start, end);
+  }),
 });
 
 // ─── Auth Router (login próprio com usuário + senha) ────────────────────────────

@@ -29,6 +29,8 @@ import {
   Check,
   X,
   Pencil,
+  Clock,
+  Scissors,
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
@@ -192,7 +194,9 @@ export default function DashboardPage() {
     return customEnd;
   }, [commissionPeriod, customEnd]);
 
+  const utils = trpc.useUtils();
   const { data: daily, isLoading: dailyLoading } = trpc.financial.daily.useQuery(undefined, { enabled: isAdmin });
+  const { data: dailyAppointments = [], isLoading: dailyAptsLoading } = trpc.financial.dailyAppointments.useQuery(undefined, { enabled: isAdmin });
   const { data: weekly, isLoading: weeklyLoading } = trpc.financial.weekly.useQuery(undefined, { enabled: isAdmin });
   const { data: monthly, isLoading: monthlyLoading } = trpc.financial.summary.useQuery(
     { startDate: monthStart, endDate: monthEnd },
@@ -292,6 +296,16 @@ export default function DashboardPage() {
                   icon={Users}
                 />
               </div>
+
+              {/* Lista de agendamentos do dia — editável pelo admin */}
+              <DailyAppointmentsList
+                appointments={dailyAppointments}
+                isLoading={dailyAptsLoading}
+                onPriceUpdated={() => {
+                  utils.financial.daily.invalidate();
+                  utils.financial.dailyAppointments.invalidate();
+                }}
+              />
 
               {(daily?.byProfessional.length ?? 0) > 0 && (
                 <div className="bg-card rounded-xl border p-5">
@@ -671,6 +685,194 @@ export default function DashboardPage() {
   );
 }
 
+// ─── Componente: Lista de agendamentos do dia com valor editável ─────────────
+type DailyAppointment = {
+  id: number;
+  clientName: string;
+  clientPhone?: string | null;
+  timeSlot?: string | null;
+  scheduledAt: Date;
+  servicePrice: string;
+  commissionPct: string;
+  commissionValue: string;
+  status: string;
+  professionalName?: string | null;
+  serviceName?: string | null;
+};
+
+function DailyAppointmentsList({
+  appointments,
+  isLoading,
+  onPriceUpdated,
+}: {
+  appointments: DailyAppointment[];
+  isLoading: boolean;
+  onPriceUpdated: () => void;
+}) {
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  const updatePriceMutation = trpc.appointments.updateServicePrice.useMutation({
+    onSuccess: () => {
+      toast.success("Valor atualizado!");
+      setEditingId(null);
+      setEditValue("");
+      onPriceUpdated();
+    },
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
+
+  function startEdit(id: number, currentPrice: string) {
+    setEditingId(id);
+    setEditValue(parseFloat(currentPrice).toFixed(2).replace(".", ","));
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditValue("");
+  }
+
+  function saveEdit(id: number) {
+    const normalized = editValue.replace(/\./g, "").replace(",", ".");
+    const num = parseFloat(normalized);
+    if (isNaN(num) || num < 0) {
+      toast.error("Valor inválido");
+      return;
+    }
+    updatePriceMutation.mutate({ id, servicePrice: num });
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (appointments.length === 0) {
+    return (
+      <div className="bg-card rounded-xl border p-6 text-center">
+        <Scissors className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+        <p className="text-sm text-muted-foreground">Nenhum agendamento para hoje</p>
+        <p className="text-xs text-muted-foreground/60 mt-1">Os agendamentos criados pelas profissionais aparecerão aqui</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-card rounded-xl border p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-serif text-lg">Atendimentos de Hoje</h3>
+        <span className="text-xs text-muted-foreground px-2 py-1 bg-muted rounded-md">
+          {appointments.length} agendamento{appointments.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b">
+              <th className="text-left py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Horário</th>
+              <th className="text-left py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Cliente</th>
+              <th className="text-left py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Profissional</th>
+              <th className="text-left py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Serviço</th>
+              <th className="text-right py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Valor Cobrado</th>
+              <th className="w-16"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {appointments.map((apt) => (
+              <tr key={apt.id} className="hover:bg-muted/20 transition-colors">
+                <td className="py-3">
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-sm font-medium">
+                      {apt.timeSlot ?? new Date(apt.scheduledAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                </td>
+                <td className="py-3">
+                  <span className="text-sm">{apt.clientName}</span>
+                </td>
+                <td className="py-3">
+                  <span className="text-sm text-muted-foreground">{apt.professionalName ?? "—"}</span>
+                </td>
+                <td className="py-3">
+                  <span className="text-sm text-muted-foreground">{apt.serviceName ?? "—"}</span>
+                </td>
+                <td className="py-3 text-right">
+                  {editingId === apt.id ? (
+                    <div className="flex items-center justify-end gap-1">
+                      <span className="text-sm text-muted-foreground">R$</span>
+                      <input
+                        autoFocus
+                        className="w-28 border rounded-md px-2 py-1 text-sm text-right bg-background"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveEdit(apt.id);
+                          if (e.key === "Escape") cancelEdit();
+                        }}
+                        placeholder="0,00"
+                      />
+                    </div>
+                  ) : (
+                    <span
+                      className="text-sm font-semibold"
+                      style={{
+                        color: parseFloat(apt.servicePrice) > 0 ? "oklch(0.45 0.09 145)" : "oklch(0.65 0.02 60)",
+                      }}
+                    >
+                      {parseFloat(apt.servicePrice) > 0
+                        ? parseFloat(apt.servicePrice).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                        : "— sem valor"}
+                    </span>
+                  )}
+                </td>
+                <td className="py-3">
+                  <div className="flex items-center justify-end gap-1">
+                    {editingId === apt.id ? (
+                      <>
+                        <button
+                          onClick={() => saveEdit(apt.id)}
+                          disabled={updatePriceMutation.isPending}
+                          className="p-1.5 rounded-md hover:bg-green-100 text-green-600 transition-colors"
+                          title="Salvar"
+                        >
+                          {updatePriceMutation.isPending ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Check className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="p-1.5 rounded-md hover:bg-red-100 text-red-500 transition-colors"
+                          title="Cancelar"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => startEdit(apt.id, apt.servicePrice)}
+                        className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                        title="Editar valor"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function ServicePricesTab() {
   const utils = trpc.useUtils();
   const { data: services = [], isLoading } = trpc.services.list.useQuery({ activeOnly: false });
@@ -733,7 +935,7 @@ function ServicePricesTab() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {items.map((svc: { id: number; name: string; price: string; durationMinutes?: number }) => (
+              {items.map((svc: { id: number; name: string; price: string; durationMinutes?: number | null }) => (
                 <tr key={svc.id} className="hover:bg-muted/20 transition-colors">
                   <td className="py-3">
                     <div className="flex items-center gap-2">
