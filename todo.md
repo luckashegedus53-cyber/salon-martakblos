@@ -74,3 +74,4 @@
 ## Melhorias na Agenda
 - [x] Adicionar card "Comissão do Dia" abaixo do card de atendimentos/faturamento na agenda
 - [x] Adicionar bloco de comissões individuais por profissional na agenda (soma do dia por profissional)
+- [x] Adicionar aba "Comissões" no Dashboard Financeiro (admin) com tabela de comissões por profissional e filtro de período

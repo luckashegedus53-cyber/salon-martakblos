@@ -17,6 +17,7 @@ import {
   getAppointmentById,
   getAppointments,
   getCommissionRules,
+  getAllProfessionalsWithCommissions,
   getFinancialSummary,
   getProfessionalById,
   getProfessionals,
@@ -282,6 +283,10 @@ const financialRouter = router({
     const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
     return getFinancialSummary(start, end);
   }),
+
+  commissions: adminProcedure
+    .input(z.object({ startDate: z.date(), endDate: z.date() }))
+    .query(({ input }) => getAllProfessionalsWithCommissions(input.startDate, input.endDate)),
 });
 
 // ─── Auth Router (login próprio com usuário + senha) ────────────────────────────

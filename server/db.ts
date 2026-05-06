@@ -361,6 +361,49 @@ export interface FinancialSummary {
   }[];
 }
 
+export async function getAllProfessionalsWithCommissions(startDate: Date, endDate: Date) {
+  const db = await getDb();
+  if (!db) return [];
+
+  // Buscar todas as profissionais
+  const allProfs = await db.select().from(professionals).orderBy(professionals.name);
+
+  // Buscar atendimentos concluídos no período
+  const rows = await db
+    .select({
+      professionalId: appointments.professionalId,
+      servicePrice: appointments.servicePrice,
+      commissionValue: appointments.commissionValue,
+    })
+    .from(appointments)
+    .where(
+      and(
+        between(appointments.scheduledAt, startDate, endDate),
+        eq(appointments.status, "completed")
+      )
+    );
+
+  // Agrupar por profissional
+  const byProf: Record<number, { revenue: number; commission: number; count: number }> = {};
+  for (const row of rows) {
+    const profId = row.professionalId;
+    if (!byProf[profId]) byProf[profId] = { revenue: 0, commission: 0, count: 0 };
+    byProf[profId]!.revenue += Number(row.servicePrice);
+    byProf[profId]!.commission += Number(row.commissionValue);
+    byProf[profId]!.count += 1;
+  }
+
+  // Retornar todas as profissionais, mesmo as com zero atendimentos
+  return allProfs.map((prof) => ({
+    professionalId: prof.id,
+    professionalName: prof.name,
+    specialty: prof.specialty ?? "",
+    revenue: byProf[prof.id]?.revenue ?? 0,
+    commission: byProf[prof.id]?.commission ?? 0,
+    count: byProf[prof.id]?.count ?? 0,
+  }));
+}
+
 export async function getFinancialSummary(startDate: Date, endDate: Date): Promise<FinancialSummary> {
   const db = await getDb();
   if (!db) {

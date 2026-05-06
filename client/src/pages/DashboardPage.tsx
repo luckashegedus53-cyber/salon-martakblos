@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, subDays, subWeeks } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   BarChart,
@@ -24,6 +24,7 @@ import {
   TrendingUp,
   Users,
   Wallet,
+  Percent,
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
@@ -159,10 +160,39 @@ export default function DashboardPage() {
   const monthStart = useMemo(() => startOfMonth(currentMonth), [currentMonth]);
   const monthEnd = useMemo(() => endOfMonth(currentMonth), [currentMonth]);
 
+  const [commissionPeriod, setCommissionPeriod] = useState<"week" | "month" | "custom">("month");
+  const [customStart, setCustomStart] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+  const [customEnd, setCustomEnd] = useState(() => {
+    const d = new Date();
+    d.setHours(23, 59, 59, 999);
+    return d;
+  });
+
+  const commissionStart = useMemo(() => {
+    if (commissionPeriod === "week") return startOfWeek(new Date(), { weekStartsOn: 0 });
+    if (commissionPeriod === "month") return startOfMonth(new Date());
+    return customStart;
+  }, [commissionPeriod, customStart]);
+
+  const commissionEnd = useMemo(() => {
+    if (commissionPeriod === "week") return endOfWeek(new Date(), { weekStartsOn: 0 });
+    if (commissionPeriod === "month") return endOfMonth(new Date());
+    return customEnd;
+  }, [commissionPeriod, customEnd]);
+
   const { data: daily, isLoading: dailyLoading } = trpc.financial.daily.useQuery(undefined, { enabled: isAdmin });
   const { data: weekly, isLoading: weeklyLoading } = trpc.financial.weekly.useQuery(undefined, { enabled: isAdmin });
   const { data: monthly, isLoading: monthlyLoading } = trpc.financial.summary.useQuery(
     { startDate: monthStart, endDate: monthEnd },
+    { enabled: isAdmin }
+  );
+  const { data: commissionsData, isLoading: commissionsLoading } = trpc.financial.commissions.useQuery(
+    { startDate: commissionStart, endDate: commissionEnd },
     { enabled: isAdmin }
   );
 
@@ -205,6 +235,10 @@ export default function DashboardPage() {
           <TabsTrigger value="monthly" className="gap-2 text-sm">
             <BarChart3 className="h-3.5 w-3.5" />
             Mês
+          </TabsTrigger>
+          <TabsTrigger value="commissions" className="gap-2 text-sm">
+            <Percent className="h-3.5 w-3.5" />
+            Comissões
           </TabsTrigger>
         </TabsList>
 
@@ -415,6 +449,185 @@ export default function DashboardPage() {
                     </div>
                   </>
                 )}
+              </div>
+            </>
+          )}
+        </TabsContent>
+
+        {/* ── COMMISSIONS ── */}
+        <TabsContent value="commissions" className="mt-6 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="font-serif text-xl">Comissões por Profissional</h2>
+              <p className="text-sm text-muted-foreground">Resumo de comissões de todas as profissionais</p>
+            </div>
+            {/* Filtro de período */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setCommissionPeriod("week")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  commissionPeriod === "week"
+                    ? "text-white"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+                style={commissionPeriod === "week" ? { background: "oklch(0.58 0.09 25)" } : {}}
+              >
+                Esta Semana
+              </button>
+              <button
+                onClick={() => setCommissionPeriod("month")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  commissionPeriod === "month"
+                    ? "text-white"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+                style={commissionPeriod === "month" ? { background: "oklch(0.58 0.09 25)" } : {}}
+              >
+                Este Mês
+              </button>
+              <button
+                onClick={() => setCommissionPeriod("custom")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  commissionPeriod === "custom"
+                    ? "text-white"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+                style={commissionPeriod === "custom" ? { background: "oklch(0.58 0.09 25)" } : {}}
+              >
+                Período
+              </button>
+            </div>
+          </div>
+
+          {/* Seletor de datas customizado */}
+          {commissionPeriod === "custom" && (
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-muted-foreground">De:</label>
+                <input
+                  type="date"
+                  className="border rounded-lg px-3 py-1.5 text-sm bg-background"
+                  value={format(customStart, "yyyy-MM-dd")}
+                  onChange={(e) => {
+                    const d = new Date(e.target.value + "T00:00:00");
+                    setCustomStart(d);
+                  }}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-muted-foreground">Até:</label>
+                <input
+                  type="date"
+                  className="border rounded-lg px-3 py-1.5 text-sm bg-background"
+                  value={format(customEnd, "yyyy-MM-dd")}
+                  onChange={(e) => {
+                    const d = new Date(e.target.value + "T23:59:59");
+                    setCustomEnd(d);
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {commissionsLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : (
+            <>
+              {/* Cards de totais */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <StatCard
+                  label="Total de Comissões"
+                  value={fmt((commissionsData ?? []).reduce((s, p) => s + p.commission, 0))}
+                  sub="Soma de todas as profissionais"
+                  icon={Percent}
+                  accent
+                />
+                <StatCard
+                  label="Faturamento Total"
+                  value={fmt((commissionsData ?? []).reduce((s, p) => s + p.revenue, 0))}
+                  sub="Atendimentos concluídos"
+                  icon={Wallet}
+                />
+                <StatCard
+                  label="Atendimentos"
+                  value={String((commissionsData ?? []).reduce((s, p) => s + p.count, 0))}
+                  sub="No período selecionado"
+                  icon={Users}
+                />
+              </div>
+
+              {/* Tabela de todas as profissionais */}
+              <div className="bg-card rounded-xl border p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-serif text-lg">Comissões por Profissional</h3>
+                  <span className="text-xs text-muted-foreground px-2 py-1 bg-muted rounded-md">
+                    {commissionPeriod === "week" ? "Esta semana" : commissionPeriod === "month" ? format(new Date(), "MMM/yyyy", { locale: ptBR }) : `${format(commissionStart, "dd/MM")} – ${format(commissionEnd, "dd/MM/yyyy")}`}
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Profissional</th>
+                        <th className="text-left py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Especialidade</th>
+                        <th className="text-right py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Atendimentos</th>
+                        <th className="text-right py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Faturamento</th>
+                        <th className="text-right py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Comissão</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {(commissionsData ?? []).map((prof) => (
+                        <tr key={prof.professionalId} className="hover:bg-muted/20 transition-colors">
+                          <td className="py-3">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
+                                style={{ background: "oklch(0.58 0.09 25 / 0.1)", color: "oklch(0.58 0.09 25)" }}
+                              >
+                                {prof.professionalName.charAt(0).toUpperCase()}
+                              </div>
+                              <span className="text-sm font-medium">{prof.professionalName}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 text-sm text-muted-foreground">{prof.specialty || "—"}</td>
+                          <td className="py-3 text-right text-sm text-muted-foreground">{prof.count}</td>
+                          <td className="py-3 text-right text-sm font-medium">{fmt(prof.revenue)}</td>
+                          <td className="py-3 text-right">
+                            <span
+                              className="text-sm font-bold px-2 py-0.5 rounded-md"
+                              style={{
+                                background: prof.commission > 0 ? "oklch(0.58 0.09 25 / 0.1)" : "transparent",
+                                color: prof.commission > 0 ? "oklch(0.58 0.09 25)" : "oklch(0.52 0.015 60)",
+                              }}
+                            >
+                              {fmt(prof.commission)}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    {(commissionsData ?? []).length > 0 && (
+                      <tfoot>
+                        <tr className="border-t-2">
+                          <td colSpan={2} className="py-3 text-sm font-semibold">Total</td>
+                          <td className="py-3 text-right text-sm font-semibold">
+                            {(commissionsData ?? []).reduce((s, p) => s + p.count, 0)}
+                          </td>
+                          <td className="py-3 text-right text-sm font-semibold">
+                            {fmt((commissionsData ?? []).reduce((s, p) => s + p.revenue, 0))}
+                          </td>
+                          <td className="py-3 text-right">
+                            <span className="text-sm font-bold" style={{ color: "oklch(0.58 0.09 25)" }}>
+                              {fmt((commissionsData ?? []).reduce((s, p) => s + p.commission, 0))}
+                            </span>
+                          </td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
               </div>
             </>
           )}
