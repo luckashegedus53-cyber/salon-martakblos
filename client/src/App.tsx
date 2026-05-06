@@ -18,8 +18,8 @@ function Router() {
       {/* Rota de login — completamente isolada, sem DashboardLayout */}
       <Route path="/login" component={LoginPage} />
 
-      {/* Rotas protegidas dentro do DashboardLayout */}
-      <Route path="/:rest*">
+      {/* Todas as outras rotas ficam dentro do DashboardLayout */}
+      <Route>
         <DashboardLayout>
           <Switch>
             <Route path="/" component={AppointmentsPage} />
