@@ -101,15 +101,16 @@
 - [x] Bug: lucro no dashboard estava em R$ 231,00 — corrigido: agendamento id:55 (Corte da Glei) atualizado de 40% para 50%, total agora R$ 243,00
 
 ## Múltiplos Serviços por Agendamento
-- [ ] Schema: criar tabela `appointment_services` (id, appointmentId, serviceId, serviceName, price, commissionPct, commissionValue)
-- [ ] Schema: adicionar coluna `servicesLabel` e `totalPrice` na tabela `appointments`
-- [ ] Migração SQL aplicada
-- [ ] db.ts: funções createAppointmentWithServices, getAppointmentsWithServices
-- [ ] routers.ts: appointments.create aceita array de serviços com valor editável
-- [ ] routers.ts: appointments.list retorna servicesLabel e totalPrice
-- [ ] AppointmentsPage: modal com campo multi-serviço (adicionar/remover, valor editável)
-- [ ] AppointmentsPage: grade exibe servicesLabel no card
-- [ ] DashboardPage: valor final = totalPrice; cards atualizados
+- [x] Schema: criar tabela `appointment_services` (id, appointmentId, serviceId, serviceName, price, commissionPct, commissionValue)
+- [x] Migração SQL aplicada
+- [x] db.ts: funções createAppointmentWithServices, getAppointmentServices, replaceAppointmentServices
+- [x] routers.ts: appointments.create aceita array de serviços com valor editável
+- [x] routers.ts: appointments.getServices retorna serviços filhos
+- [x] AppointmentsPage: modal com campo multi-serviço (adicionar/remover, valor editável, total dinâmico)
+- [x] AppointmentsPage: grade exibe nome do serviço principal no card
+- [x] DashboardPage: servicePrice = soma dos serviços; cards atualizados
+- [ ] Envolver createAppointmentWithServices em transação Drizzle para atomicidade
+- [ ] Testes de backend para criação multi-serviço (totais, comissão agregada)
 
 ## Deploy Standalone (VPS Hostinger)
 - [ ] Remover dependências do Manus OAuth do servidor e frontend para deploy standalone
