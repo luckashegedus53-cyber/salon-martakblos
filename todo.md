@@ -99,3 +99,11 @@
 - [x] Sincronizar todas as regras de comissão globais conforme tabela oficial (50%/60%/70%) e recalcular agendamentos ativos
 - [x] Bug: comissão R$ 778 em vez de R$ 790 — ID:64 (Corte da Glei) estava com 40% em vez de 50%; corrigido para R$ 790,00
 - [x] Bug: lucro no dashboard estava em R$ 231,00 — corrigido: agendamento id:55 (Corte da Glei) atualizado de 40% para 50%, total agora R$ 243,00
+
+## Deploy Standalone (VPS Hostinger)
+- [ ] Remover dependências do Manus OAuth do servidor e frontend para deploy standalone
+- [ ] Ajustar variáveis de ambiente para funcionar sem Manus (sem VITE_APP_ID, OAUTH_SERVER_URL, etc.)
+- [ ] Fazer build e empacotar nova imagem Docker sem dependências Manus
+- [ ] Atualizar container no Dokploy com nova imagem standalone
+- [ ] Configurar registros DNS A no registro.br (martakblos.com.br → 212.85.12.179)
+- [ ] Verificar deploy final em https://martakblos.com.br
