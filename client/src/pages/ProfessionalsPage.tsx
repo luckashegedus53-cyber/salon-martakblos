@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Edit2, Loader2, Mail, Phone, Plus, Scissors, UserX } from "lucide-react";
+import { ChevronDown, ChevronUp, Edit2, Loader2, Mail, Phone, Plus, Scissors, UserX } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -42,9 +42,33 @@ export default function ProfessionalsPage() {
   const isAdmin = user?.role === "admin";
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [expandedProfId, setExpandedProfId] = useState<number | null>(null);
 
   const utils = trpc.useUtils();
   const { data: professionals = [], isLoading } = trpc.professionals.list.useQuery({ activeOnly: false });
+  const { data: services = [] } = trpc.services.list.useQuery({ activeOnly: true });
+  // Buscar todas as regras de comissão (globais + por profissional)
+  const { data: allRules = [] } = trpc.commission.list.useQuery({});
+
+  // Função para resolver comissão de um profissional+serviço usando as regras em memória
+  const resolveCommission = (professionalId: number, serviceId: number): number => {
+    // 1. Regra específica profissional+serviço
+    const specific = allRules.find(
+      (r) => r.professionalId === professionalId && r.serviceId === serviceId
+    );
+    if (specific) return Number(specific.commissionPct);
+    // 2. Regra geral do profissional (sem serviço)
+    const general = allRules.find(
+      (r) => r.professionalId === professionalId && r.serviceId == null
+    );
+    if (general) return Number(general.commissionPct);
+    // 3. Regra global por serviço (sem profissional)
+    const globalSvc = allRules.find(
+      (r) => r.professionalId == null && r.serviceId === serviceId
+    );
+    if (globalSvc) return Number(globalSvc.commissionPct);
+    return 0;
+  };
 
   const createMutation = trpc.professionals.create.useMutation({
     onSuccess: () => {
@@ -207,12 +231,35 @@ export default function ProfessionalsPage() {
                     {p.phone}
                   </p>
                 )}
-                <p className="text-xs text-muted-foreground flex items-center gap-2">
-                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded"
-                    style={{ background: "oklch(0.58 0.09 25 / 0.08)", color: "oklch(0.58 0.09 25)" }}>
-                    Comissão padrão: {Number(p.defaultCommissionPct ?? 0).toFixed(0)}%
-                  </span>
-                </p>
+                {/* Comissões por serviço */}
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded w-full text-left"
+                    style={{ background: "oklch(0.58 0.09 25 / 0.08)", color: "oklch(0.58 0.09 25)" }}
+                    onClick={() => setExpandedProfId(expandedProfId === p.id ? null : p.id)}
+                  >
+                    <span className="flex-1">Comissões por serviço</span>
+                    {expandedProfId === p.id
+                      ? <ChevronUp className="h-3 w-3 shrink-0" />
+                      : <ChevronDown className="h-3 w-3 shrink-0" />}
+                  </button>
+                  {expandedProfId === p.id && (
+                    <div className="mt-1.5 space-y-0.5 max-h-40 overflow-y-auto pr-1">
+                      {services.map((svc) => {
+                        const pct = resolveCommission(p.id, svc.id);
+                        return (
+                          <div key={svc.id} className="flex items-center justify-between text-[10px] text-muted-foreground">
+                            <span className="truncate pr-2">{svc.name}</span>
+                            <span className="font-semibold shrink-0" style={{ color: "oklch(0.58 0.09 25)" }}>
+                              {pct}%
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex gap-2 pt-3 border-t">
