@@ -72,6 +72,7 @@ const appointmentSchema = z.object({
   clientPhone: z.string().optional(),
   professionalId: z.string().min(1, "Selecione um profissional"),
   serviceId: z.string().min(1, "Selecione um serviço"),
+  servicePrice: z.string().min(1, "Informe o valor"),
   date: z.date().nullable().optional(),
   time: z.string().min(1, "Informe o horário"),
   notes: z.string().optional(),
@@ -165,10 +166,15 @@ export default function AppointmentsPage() {
       clientPhone: "",
       professionalId: "",
       serviceId: "",
+      servicePrice: "",
       time: "09:00",
       notes: "",
     },
   });
+
+  // Ao mudar o serviço, preencher automaticamente o campo de valor com o preço padrão
+  const watchedServiceId = form.watch("serviceId");
+  const selectedService = services.find((s) => String(s.id) === watchedServiceId);
 
   const onSubmit = (values: AppointmentFormValues) => {
     const baseDate = values.date ?? selectedDate ?? new Date();
@@ -180,6 +186,7 @@ export default function AppointmentsPage() {
     const scheduledAt = new Date(baseDate);
     scheduledAt.setHours(0, 0, 0, 0); // zerar hora primeiro
     scheduledAt.setHours(hours!, minutes!, 0, 0); // aplicar horário local
+    const customPrice = parseFloat(values.servicePrice.replace(",", "."));
     createMutation.mutate({
       clientName: values.clientName,
       clientPhone: values.clientPhone || null,
@@ -188,6 +195,7 @@ export default function AppointmentsPage() {
       scheduledAt,
       timeSlot: values.time, // horário local do usuário ex: "13:00"
       notes: values.notes || null,
+      servicePrice: isNaN(customPrice) ? undefined : customPrice,
     });
   };
 
@@ -197,6 +205,7 @@ export default function AppointmentsPage() {
       clientPhone: "",
       professionalId: "",
       serviceId: "",
+      servicePrice: "",
       time: time ?? "09:00",
       notes: "",
       date: selectedDate,
@@ -950,7 +959,17 @@ export default function AppointmentsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Serviço</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select
+                        onValueChange={(val) => {
+                          field.onChange(val);
+                          // Preencher automaticamente o valor com o preço padrão do serviço
+                          const svc = services.find((s) => String(s.id) === val);
+                          if (svc) {
+                            form.setValue("servicePrice", Number(svc.price).toFixed(2), { shouldValidate: true });
+                          }
+                        }}
+                        value={field.value}
+                      >
                         <FormControl>
                           <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                         </FormControl>
@@ -962,6 +981,29 @@ export default function AppointmentsPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="servicePrice"
+                  render={({ field }) => (
+                    <FormItem className="col-span-2">
+                      <FormLabel>Valor do Serviço</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">R$</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0,00"
+                            className="pl-10"
+                            {...field}
+                          />
+                        </div>
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

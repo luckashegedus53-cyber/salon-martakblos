@@ -180,6 +180,7 @@ const appointmentsRouter = router({
         scheduledAt: z.date(),
         timeSlot: z.string().optional().nullable(), // horário local do usuário ex: "13:00"
         notes: z.string().optional().nullable(),
+        servicePrice: z.number().positive().optional(), // preço customizado (opcional, usa o do serviço se omitido)
       })
     )
     .mutation(async ({ input }) => {
@@ -187,7 +188,7 @@ const appointmentsRouter = router({
       if (!service) throw new TRPCError({ code: "NOT_FOUND", message: "Serviço não encontrado." });
 
       const commissionPct = await resolveCommissionPct(input.professionalId, input.serviceId);
-      const servicePrice = Number(service.price);
+      const servicePrice = input.servicePrice ?? Number(service.price);
       const commissionValue = (servicePrice * commissionPct) / 100;
 
       await createAppointment({
