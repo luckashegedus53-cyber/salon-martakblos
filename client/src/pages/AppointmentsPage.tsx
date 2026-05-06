@@ -72,7 +72,10 @@ const appointmentSchema = z.object({
   clientPhone: z.string().optional(),
   professionalId: z.string().min(1, "Selecione um profissional"),
   serviceId: z.string().min(1, "Selecione um serviço"),
-  servicePrice: z.string().min(1, "Informe o valor"),
+  servicePrice: z.string().min(1, "Informe o valor").refine(
+    (v) => { const n = parseFloat(v.replace(",", ".")); return !isNaN(n) && n > 0 && n <= 999999.99; },
+    { message: "Valor deve ser entre R$ 0,01 e R$ 999.999,99" }
+  ),
   date: z.date().nullable().optional(),
   time: z.string().min(1, "Informe o horário"),
   notes: z.string().optional(),
@@ -996,7 +999,8 @@ export default function AppointmentsPage() {
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">R$</span>
                           <Input
                             type="number"
-                            min="0"
+                            min="0.01"
+                            max="999999.99"
                             step="0.01"
                             placeholder="0,00"
                             className="pl-10"

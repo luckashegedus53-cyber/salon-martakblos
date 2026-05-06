@@ -93,4 +93,5 @@
 - [x] Recalcular commissionValue dos agendamentos existentes com Corte (de 40% para 50%) - total agora R$ 230,00
 - [x] Adicionar serviço "Aplicação de Color" com valor R$ 100,00 e regra de comissão 50%
 - [x] Campo de valor do serviço editável no formulário de agendamento (profissionais podem alterar o preço na hora)
+- [x] Campo de valor aceita até 6 dígitos (máximo R$ 999.999,99)
 - [x] Bug: lucro no dashboard estava em R$ 231,00 — corrigido: agendamento id:55 (Corte da Glei) atualizado de 40% para 50%, total agora R$ 243,00

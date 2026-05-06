@@ -180,7 +180,7 @@ const appointmentsRouter = router({
         scheduledAt: z.date(),
         timeSlot: z.string().optional().nullable(), // horário local do usuário ex: "13:00"
         notes: z.string().optional().nullable(),
-        servicePrice: z.number().positive().optional(), // preço customizado (opcional, usa o do serviço se omitido)
+        servicePrice: z.number().positive().max(999999.99).optional(), // preço customizado (opcional, usa o do serviço se omitido)
       })
     )
     .mutation(async ({ input }) => {
