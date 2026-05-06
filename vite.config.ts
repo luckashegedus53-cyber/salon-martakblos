@@ -150,7 +150,15 @@ function vitePluginManusDebugCollector(): Plugin {
   };
 }
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector()];
+// Only include manus-runtime in development (it adds 350KB inline script to HTML)
+const isDev = process.env.NODE_ENV !== "production";
+const plugins = [
+  react(),
+  tailwindcss(),
+  jsxLocPlugin(),
+  ...(isDev ? [vitePluginManusRuntime()] : []),
+  vitePluginManusDebugCollector(),
+];
 
 export default defineConfig({
   plugins,
