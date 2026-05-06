@@ -139,7 +139,7 @@ function ProfessionalCommissionTable({
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const isAdmin = user?.role === "admin";
   const [, setLocation] = useLocation();
   const [monthOffset, setMonthOffset] = useState(0);
@@ -198,6 +198,14 @@ export default function DashboardPage() {
     { enabled: isAdmin }
   );
 
+  // Aguardar carregamento do usuário antes de verificar permissão
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
   if (!isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
