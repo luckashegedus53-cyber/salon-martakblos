@@ -111,8 +111,19 @@ export default function AppointmentsPage() {
   const { data: professionals = [] } = trpc.professionals.list.useQuery({ activeOnly: true });
   const { data: services = [] } = trpc.services.list.useQuery({ activeOnly: true });
 
-  const startDate = useMemo(() => startOfMonth(currentDate), [currentDate]);
-  const endDate = useMemo(() => endOfMonth(currentDate), [currentDate]);
+  // startDate: primeiro dia do mês às 00:00 local → em UTC pode ser o dia anterior
+  // endDate: último dia do mês às 23:59:59 local → em UTC pode ser o dia seguinte
+  // Subtraímos 1 dia do start e adicionamos 1 dia ao end para garantir cobertura total
+  const startDate = useMemo(() => {
+    const d = startOfMonth(currentDate);
+    d.setDate(d.getDate() - 1);
+    return d;
+  }, [currentDate]);
+  const endDate = useMemo(() => {
+    const d = endOfMonth(currentDate);
+    d.setDate(d.getDate() + 1);
+    return d;
+  }, [currentDate]);
 
   const { data: appointments = [], isLoading } = trpc.appointments.list.useQuery({
     professionalId: filterProfessionalId !== "all" ? parseInt(filterProfessionalId) : undefined,
@@ -155,10 +166,12 @@ export default function AppointmentsPage() {
     const baseDate = values.date ?? selectedDate ?? new Date();
     const [hours, minutes] = values.time.split(":").map(Number);
     // Construir scheduledAt usando o timezone local do browser
-    // setHours() usa o timezone local, então 13:00 em UTC-3 → 16:00 UTC
-    // O mysql2 armazena e retorna em UTC, então getUTCHours() na tabela retorna 16
+    // Primeiro zeramos a hora da data base para evitar problemas com hora atual
+    // Depois aplicamos o horário selecionado no timezone local
+    // Ex: 06/05 + 09:00 local (UTC-3) → scheduledAt = 2026-05-06T12:00:00.000Z
     const scheduledAt = new Date(baseDate);
-    scheduledAt.setHours(hours!, minutes!, 0, 0);
+    scheduledAt.setHours(0, 0, 0, 0); // zerar hora primeiro
+    scheduledAt.setHours(hours!, minutes!, 0, 0); // aplicar horário local
     createMutation.mutate({
       clientName: values.clientName,
       clientPhone: values.clientPhone || null,
@@ -191,17 +204,20 @@ export default function AppointmentsPage() {
     return eachDayOfInterval({ start, end });
   }, [currentDate]);
 
-  // Comparar datas usando UTC para evitar problemas de timezone
-  const isSameDayUTC = (d1: Date, d2: Date) =>
-    d1.getUTCFullYear() === d2.getUTCFullYear() &&
-    d1.getUTCMonth() === d2.getUTCMonth() &&
-    d1.getUTCDate() === d2.getUTCDate();
+  // Comparar datas usando timezone LOCAL do browser
+  // scheduledAt é armazenado em UTC mas representa o horário local do agendamento
+  // Ex: agendamento às 09:00 no Brasil (UTC-3) → salvo como 12:00 UTC
+  // Ao converter de volta: new Date(scheduledAt).getFullYear() retorna o ano local correto
+  const isSameDayLocal = (d1: Date, d2: Date) =>
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate();
 
   const getAppointmentsForDay = (day: Date) =>
-    appointments.filter((a) => isSameDayUTC(new Date(a.scheduledAt), day));
+    appointments.filter((a) => isSameDayLocal(new Date(a.scheduledAt), day));
 
   const selectedDayAppointments = appointments
-    .filter((a) => isSameDayUTC(new Date(a.scheduledAt), selectedDate))
+    .filter((a) => isSameDayLocal(new Date(a.scheduledAt), selectedDate))
     .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
 
   const getProfessionalName = (id: number) =>
@@ -212,11 +228,12 @@ export default function AppointmentsPage() {
   const formatCurrency = (val: string | number) =>
     `R$ ${Number(val).toFixed(2).replace(".", ",")}`;
 
-  // Formatar hora usando UTC para evitar deslocamento de timezone
+  // Formatar hora usando timezone LOCAL do browser
+  // scheduledAt em UTC converte corretamente para hora local com getHours()
   const formatUTCTime = (date: Date | string) => {
     const d = new Date(date);
-    const h = String(d.getUTCHours()).padStart(2, "0");
-    const m = String(d.getUTCMinutes()).padStart(2, "0");
+    const h = String(d.getHours()).padStart(2, "0");
+    const m = String(d.getMinutes()).padStart(2, "0");
     return `${h}:${m}`;
   };
 

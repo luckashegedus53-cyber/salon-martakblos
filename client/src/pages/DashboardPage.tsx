@@ -582,7 +582,7 @@ export default function DashboardPage() {
                         ? "Esta semana"
                         : commissionPeriod === "month"
                           ? format(new Date(), "MMM/yyyy", { locale: ptBR })
-                          : format(commissionStart, "dd/MM") + " – " + format(commissionEnd, "dd/MM/yyyy")
+                          : `${format(commissionStart, "dd/MM")} - ${format(commissionEnd, "dd/MM/yyyy")}`
                     }
                   </span>
                 </div>
