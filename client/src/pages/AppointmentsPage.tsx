@@ -136,6 +136,10 @@ export default function AppointmentsPage() {
     onSuccess: () => {
       toast.success("Agendamento criado com sucesso!");
       utils.appointments.list.invalidate();
+      utils.financial.daily.invalidate();
+      utils.financial.weekly.invalidate();
+      utils.financial.summary.invalidate();
+      utils.financial.commissions.invalidate();
       setShowNewModal(false);
       form.reset();
     },
@@ -146,6 +150,10 @@ export default function AppointmentsPage() {
     onSuccess: () => {
       toast.success("Status atualizado!");
       utils.appointments.list.invalidate();
+      utils.financial.daily.invalidate();
+      utils.financial.weekly.invalidate();
+      utils.financial.summary.invalidate();
+      utils.financial.commissions.invalidate();
     },
     onError: (err) => toast.error(err.message),
   });
@@ -511,10 +519,12 @@ export default function AppointmentsPage() {
 
                         {/* Células por profissional */}
                         {visibleProfessionals.map((prof, profIdx) => {
-                          const appt = selectedDayAppointments.find((a) => {
+                          // Priorizar agendamento ativo (scheduled/completed) sobre cancelado no mesmo slot
+                          const allSameSlot = selectedDayAppointments.filter((a) => {
                             const matchSlot = a.timeSlot ? a.timeSlot === slot : false;
                             return a.professionalId === prof.id && matchSlot;
                           });
+                          const appt = allSameSlot.find((a) => a.status !== "cancelled") ?? allSameSlot[0];
                           const isLastProf = profIdx === visibleProfessionals.length - 1;
 
                           // Célula vazia OU cancelada → exibe × e permite novo agendamento

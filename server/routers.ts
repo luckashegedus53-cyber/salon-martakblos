@@ -259,28 +259,34 @@ const financialRouter = router({
     .query(({ input }) => getFinancialSummary(input.startDate, input.endDate)),
 
   daily: adminProcedure.query(() => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    // Usar UTC-3 (horário de Brasília) para calcular o dia atual
+    const nowUTC = new Date();
+    const BRT_OFFSET = -3 * 60 * 60 * 1000; // UTC-3 em ms
+    const nowBRT = new Date(nowUTC.getTime() + BRT_OFFSET);
+    const y = nowBRT.getUTCFullYear(), mo = nowBRT.getUTCMonth(), d = nowBRT.getUTCDate();
+    // start = início do dia BRT em UTC
+    const start = new Date(Date.UTC(y, mo, d, 3, 0, 0)); // 00:00 BRT = 03:00 UTC
+    const end = new Date(Date.UTC(y, mo, d + 1, 2, 59, 59)); // 23:59 BRT = 02:59 UTC do dia seguinte
     return getFinancialSummary(start, end);
   }),
-
   weekly: adminProcedure.query(() => {
-    const now = new Date();
-    const day = now.getDay();
-    const start = new Date(now);
-    start.setDate(now.getDate() - day);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    end.setHours(23, 59, 59, 999);
+    const nowUTC = new Date();
+    const BRT_OFFSET = -3 * 60 * 60 * 1000;
+    const nowBRT = new Date(nowUTC.getTime() + BRT_OFFSET);
+    const day = nowBRT.getUTCDay();
+    const y = nowBRT.getUTCFullYear(), mo = nowBRT.getUTCMonth(), d = nowBRT.getUTCDate();
+    const startDay = d - day;
+    const start = new Date(Date.UTC(y, mo, startDay, 3, 0, 0));
+    const end = new Date(Date.UTC(y, mo, startDay + 7, 2, 59, 59));
     return getFinancialSummary(start, end);
   }),
-
   monthly: adminProcedure.query(() => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const nowUTC = new Date();
+    const BRT_OFFSET = -3 * 60 * 60 * 1000;
+    const nowBRT = new Date(nowUTC.getTime() + BRT_OFFSET);
+    const y = nowBRT.getUTCFullYear(), mo = nowBRT.getUTCMonth();
+    const start = new Date(Date.UTC(y, mo, 1, 3, 0, 0));
+    const end = new Date(Date.UTC(y, mo + 1, 1, 2, 59, 59));
     return getFinancialSummary(start, end);
   }),
 

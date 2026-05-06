@@ -83,3 +83,6 @@
 - [x] Corrigir bug de fuso horário no agendamento (agendamento aparece no dia errado)
 - [x] Bug crítico: novo agendamento não está sendo salvo (resolvido: erro de parse no DashboardPage causava reinicialização do servidor)
 - [x] Bug crítico: agendamento não aparecia na agenda (resolvido: fuso horário — scheduledAt não estava zerando a hora antes de aplicar o horário selecionado + erro de parse no DashboardPage)
+- [x] Bug: agendamentos aparecem duplicados na agenda (resolvido: find prioriza agendamento ativo sobre cancelado no mesmo slot)
+- [x] Bug: cancelar/apagar agendamento não funciona (resolvido: invalidate do cache após updateStatus + fuso horário)
+- [x] Bug: Dashboard Financeiro não reflete os agendamentos em tempo real (resolvido: filtro inclui scheduled+completed, exclui apenas cancelled; fuso horário BRT corrigido)

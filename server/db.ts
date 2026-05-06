@@ -1,4 +1,4 @@
-import { and, between, desc, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
+import { and, between, desc, eq, gte, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   appointments,
@@ -379,7 +379,7 @@ export async function getAllProfessionalsWithCommissions(startDate: Date, endDat
     .where(
       and(
         between(appointments.scheduledAt, startDate, endDate),
-        eq(appointments.status, "completed")
+        ne(appointments.status, "cancelled")
       )
     );
 
@@ -424,7 +424,7 @@ export async function getFinancialSummary(startDate: Date, endDate: Date): Promi
     .where(
       and(
         between(appointments.scheduledAt, startDate, endDate),
-        eq(appointments.status, "completed")
+        ne(appointments.status, "cancelled")
       )
     );
 
