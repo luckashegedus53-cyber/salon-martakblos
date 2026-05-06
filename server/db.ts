@@ -270,13 +270,26 @@ export async function resolveCommissionPct(professionalId: number, serviceId: nu
     .limit(1);
   if (general.length > 0) return Number(general[0]!.commissionPct);
 
-  // 3. Service default commission
+  // 3. Global rule for this service (professionalId IS NULL, serviceId = serviceId)
+  const globalService = await db
+    .select()
+    .from(commissionRules)
+    .where(
+      and(
+        isNull(commissionRules.professionalId),
+        eq(commissionRules.serviceId, serviceId)
+      )
+    )
+    .limit(1);
+  if (globalService.length > 0) return Number(globalService[0]!.commissionPct);
+
+  // 4. Service default commission
   const svc = await db.select().from(services).where(eq(services.id, serviceId)).limit(1);
   if (svc.length > 0 && Number(svc[0]!.defaultCommissionPct) > 0) {
     return Number(svc[0]!.defaultCommissionPct);
   }
 
-  // 4. Professional default commission
+  // 5. Professional default commission
   const prof = await db.select().from(professionals).where(eq(professionals.id, professionalId)).limit(1);
   if (prof.length > 0) return Number(prof[0]!.defaultCommissionPct);
 

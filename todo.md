@@ -95,5 +95,6 @@
 - [x] Campo de valor do serviço editável no formulário de agendamento (profissionais podem alterar o preço na hora)
 - [x] Campo de valor aceita até 6 dígitos (máximo R$ 999.999,99)
 - [x] Corrigir campo de valor para aceitar formato brasileiro (vírgula decimal, ex: 1.200,00) — substituir type=number por input texto com máscara monetária
+- [x] Sincronizar todas as regras de comissão globais conforme tabela oficial (50%/60%/70%) e recalcular agendamentos ativos
 - [x] Bug: comissão R$ 778 em vez de R$ 790 — ID:64 (Corte da Glei) estava com 40% em vez de 50%; corrigido para R$ 790,00
 - [x] Bug: lucro no dashboard estava em R$ 231,00 — corrigido: agendamento id:55 (Corte da Glei) atualizado de 40% para 50%, total agora R$ 243,00
