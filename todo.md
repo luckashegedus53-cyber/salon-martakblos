@@ -88,3 +88,6 @@
 - [x] Bug: Dashboard Financeiro não reflete os agendamentos em tempo real (resolvido: filtro inclui scheduled+completed, exclui apenas cancelled; fuso horário BRT corrigido)
 - [x] Zerar saldo: apagar todos os agendamentos de teste do banco (33 agendamentos removidos)
 - [x] Verificar e corrigir comissões da Bia: removida regra genérica 50% que sobrescrevia as regras globais por serviço
+- [x] Bug: comissão calculada R$ 218,00 mas deveria ser R$ 230,00 (resolvido: Corte não tinha regra de comissão, usava 40% padrão)
+- [x] Adicionar regra de comissão 50% para o serviço Corte no banco
+- [x] Recalcular commissionValue dos agendamentos existentes com Corte (de 40% para 50%) - total agora R$ 230,00
