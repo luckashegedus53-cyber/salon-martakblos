@@ -575,8 +575,8 @@ export default function AppointmentsPage() {
                                 "px-3 py-2",
                                 !isLastProf && "border-r"
                               )}>
-                                {appt.status === "scheduled" && (
-                                  <div className="flex gap-0.5">
+                                <div className="flex gap-0.5">
+                                  {appt.status === "scheduled" && (
                                     <button
                                       title="Concluir"
                                       onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "completed" })}
@@ -584,6 +584,8 @@ export default function AppointmentsPage() {
                                     >
                                       <CheckCircle2 className="h-3 w-3" />
                                     </button>
+                                  )}
+                                  {(appt.status as string) !== "cancelled" && (
                                     <button
                                       title="Cancelar"
                                       onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "cancelled" })}
@@ -591,8 +593,8 @@ export default function AppointmentsPage() {
                                     >
                                       <XCircle className="h-3 w-3" />
                                     </button>
-                                  </div>
-                                )}
+                                  )}
+                                </div>
                               </td>
                             </Fragment>
                           );
@@ -737,8 +739,8 @@ export default function AppointmentsPage() {
                             {getProfessionalName(appt.professionalId)}
                           </p>
                         </div>
-                        {appt.status === "scheduled" && (
-                          <div className="flex gap-2 mt-3">
+                        <div className="flex gap-2 mt-3">
+                          {appt.status === "scheduled" && (
                             <Button
                               size="sm" variant="outline"
                               className="flex-1 h-7 text-xs gap-1 text-green-700 border-green-200 hover:bg-green-50"
@@ -746,6 +748,8 @@ export default function AppointmentsPage() {
                             >
                               <CheckCircle2 className="h-3 w-3" /> Concluir
                             </Button>
+                          )}
+                          {appt.status !== "cancelled" && (
                             <Button
                               size="sm" variant="outline"
                               className="flex-1 h-7 text-xs gap-1 text-red-600 border-red-200 hover:bg-red-50"
@@ -753,8 +757,8 @@ export default function AppointmentsPage() {
                             >
                               <XCircle className="h-3 w-3" /> Cancelar
                             </Button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -831,8 +835,8 @@ export default function AppointmentsPage() {
                           <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", status.className)}>
                             {status.label}
                           </span>
-                          {appt.status === "scheduled" && (
-                            <div className="flex gap-0.5 ml-1">
+                          <div className="flex gap-0.5 ml-1">
+                            {appt.status === "scheduled" && (
                               <button
                                 title="Concluir"
                                 onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "completed" })}
@@ -840,6 +844,8 @@ export default function AppointmentsPage() {
                               >
                                 <CheckCircle2 className="h-3.5 w-3.5" />
                               </button>
+                            )}
+                            {appt.status !== "cancelled" && (
                               <button
                                 title="Cancelar"
                                 onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "cancelled" })}
@@ -847,8 +853,8 @@ export default function AppointmentsPage() {
                               >
                                 <XCircle className="h-3.5 w-3.5" />
                               </button>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
