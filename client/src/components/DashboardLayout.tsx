@@ -58,22 +58,14 @@ const MAX_WIDTH = 360;
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarWidth, setSidebarWidth] = useState(() => {
-    try {
-      const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
-      return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
-    } catch {
-      return DEFAULT_WIDTH;
-    }
+    const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+    return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
   });
   const { loading, user } = useAuth();
 
   // Todos os hooks devem vir antes de qualquer return condicional
   useEffect(() => {
-    try {
-      localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
-    } catch {
-      // localStorage may be unavailable
-    }
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
   }, [sidebarWidth]);
 
   // Redirecionar para /login se não autenticado
