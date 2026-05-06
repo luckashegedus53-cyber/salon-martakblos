@@ -19,7 +19,7 @@ function Router() {
       <Route path="/login" component={LoginPage} />
 
       {/* Rotas protegidas dentro do DashboardLayout */}
-      <Route path="/">
+      <Route path="/:rest*">
         <DashboardLayout>
           <Switch>
             <Route path="/" component={AppointmentsPage} />
