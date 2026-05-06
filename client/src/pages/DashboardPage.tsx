@@ -576,7 +576,14 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-serif text-lg">Comissões por Profissional</h3>
                   <span className="text-xs text-muted-foreground px-2 py-1 bg-muted rounded-md">
-                    {commissionPeriod === "today" ? format(new Date(), "dd/MM/yyyy") : commissionPeriod === "week" ? "Esta semana" : commissionPeriod === "month" ? format(new Date(), "MMM/yyyy", { locale: ptBR }) : `${format(commissionStart, "dd/MM")} – ${format(commissionEnd, "dd/MM/yyyy")}`}
+                    {commissionPeriod === "today"
+                      ? format(new Date(), "dd/MM/yyyy")
+                      : commissionPeriod === "week"
+                        ? "Esta semana"
+                        : commissionPeriod === "month"
+                          ? format(new Date(), "MMM/yyyy", { locale: ptBR })
+                          : format(commissionStart, "dd/MM") + " – " + format(commissionEnd, "dd/MM/yyyy")
+                    }
                   </span>
                 </div>
                 <div className="overflow-x-auto">

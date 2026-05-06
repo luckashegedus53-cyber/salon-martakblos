@@ -81,3 +81,4 @@
 - [x] Bug: agendamento mostra sucesso mas não aparece na agenda (investigar logs — funcionando corretamente)
 - [x] Remover blocos "Comissão do Dia" e "Comissão por Profissional" da agenda
 - [x] Corrigir bug de fuso horário no agendamento (agendamento aparece no dia errado)
+- [x] Bug crítico: novo agendamento não está sendo salvo (resolvido: erro de parse no DashboardPage causava reinicialização do servidor)
