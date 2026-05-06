@@ -175,41 +175,7 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          // React core
-          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
-            return 'vendor-react';
-          }
-          // Charts (recharts is very large)
-          if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-') || id.includes('node_modules/victory-')) {
-            return 'vendor-charts';
-          }
-          // tRPC + React Query
-          if (id.includes('node_modules/@trpc/') || id.includes('node_modules/@tanstack/')) {
-            return 'vendor-trpc';
-          }
-          // Radix UI components
-          if (id.includes('node_modules/@radix-ui/')) {
-            return 'vendor-radix';
-          }
-          // Date utilities
-          if (id.includes('node_modules/date-fns') || id.includes('node_modules/react-day-picker')) {
-            return 'vendor-dates';
-          }
-          // Animation / motion
-          if (id.includes('node_modules/framer-motion')) {
-            return 'vendor-motion';
-          }
-          // Other large vendor libs
-          if (id.includes('node_modules/')) {
-            return 'vendor-misc';
-          }
-        },
-      },
-    },
-    chunkSizeWarningLimit: 600,
+    chunkSizeWarningLimit: 1600,
   },
   server: {
     host: true,
