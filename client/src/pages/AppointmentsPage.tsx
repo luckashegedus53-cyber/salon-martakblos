@@ -933,7 +933,7 @@ export default function AppointmentsPage() {
                         <SelectContent>
                           {services.map((s) => (
                             <SelectItem key={s.id} value={String(s.id)}>
-                              {s.name} — R$ {Number(s.price).toFixed(2).replace(".", ",")}
+                              {s.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
