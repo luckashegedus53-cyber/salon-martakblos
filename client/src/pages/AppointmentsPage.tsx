@@ -395,30 +395,6 @@ export default function AppointmentsPage() {
             </div>
           </div>
 
-          {/* Comissão do dia + por profissional */}
-          <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 overflow-hidden">
-            {/* Total */}
-            <div className="flex items-center gap-3 px-5 py-3">
-              <Percent className="h-4 w-4 text-amber-600" />
-              <span className="text-sm text-muted-foreground">Comissão do dia:</span>
-              <span className="text-sm font-bold text-amber-600">{formatCurrency(dayCommission)}</span>
-            </div>
-            {/* Por profissional */}
-            {commissionByProfessional.length > 0 && (
-              <div className="border-t border-amber-200 dark:border-amber-800 px-5 py-3">
-                <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide mb-2">Comissão por profissional</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                  {commissionByProfessional.map((prof) => (
-                    <div key={prof.id} className="flex flex-col gap-0.5 bg-white dark:bg-amber-900/30 rounded-lg px-3 py-2 border border-amber-100 dark:border-amber-800">
-                      <span className="text-xs font-semibold text-foreground truncate">{prof.name}</span>
-                      <span className="text-xs text-muted-foreground">{prof.count} atend.</span>
-                      <span className="text-sm font-bold text-amber-600">{formatCurrency(prof.commission)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* Book table */}
           {isLoading ? (

@@ -76,3 +76,8 @@
 - [x] Adicionar bloco de comissões individuais por profissional na agenda (soma do dia por profissional)
 - [x] Adicionar aba "Comissões" no Dashboard Financeiro (admin) com tabela de comissões por profissional e filtro de período
 - [x] Corrigir aba Comissões do Dashboard: padrão "Hoje", adicionar filtro de dia, mostrar valor ganho no dia por profissional
+
+## Bugs
+- [x] Bug: agendamento mostra sucesso mas não aparece na agenda (investigar logs — funcionando corretamente)
+- [x] Remover blocos "Comissão do Dia" e "Comissão por Profissional" da agenda
+- [x] Corrigir bug de fuso horário no agendamento (agendamento aparece no dia errado)
