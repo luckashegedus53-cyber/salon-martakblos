@@ -417,25 +417,12 @@ export default function AppointmentsPage() {
             </Button>
           </div>
 
-          {/* Summary bar */}
-          <div className="flex items-center gap-4 px-5 py-3 bg-card rounded-xl border">
-            <div className="flex items-center gap-2 text-sm">
-              <CalendarDays className="h-4 w-4 text-primary" />
-              <span className="text-muted-foreground">Atendimentos:</span>
-              <span className="font-semibold">{selectedDayAppointments.filter(a => a.status !== "cancelled").length}</span>
-            </div>
-            <div className="h-4 w-px bg-border" />
-            <div className="flex items-center gap-2 text-sm">
-              <DollarSign className="h-4 w-4 text-primary" />
-              <span className="text-muted-foreground">Faturamento do dia:</span>
-              <span className="font-semibold text-primary">{formatCurrency(dayTotal)}</span>
-            </div>
-            <div className="ml-auto">
-              <Button size="sm" className="gap-1.5" onClick={() => openNewModal()}>
-                <Plus className="h-3.5 w-3.5" />
-                Agendar
-              </Button>
-            </div>
+          {/* Agendar button */}
+          <div className="flex justify-end">
+            <Button size="sm" className="gap-1.5" onClick={() => openNewModal()}>
+              <Plus className="h-3.5 w-3.5" />
+              Agendar
+            </Button>
           </div>
 
 
@@ -495,12 +482,7 @@ export default function AppointmentsPage() {
                         <th className="px-3 py-2 text-left font-medium">
                           Serviço
                         </th>
-                        <th className={cn(
-                          "px-3 py-2 text-right font-medium",
-                          idx < visibleProfessionals.length - 1 && "border-r"
-                        )}>
-                          Valor
-                        </th>
+
                       </Fragment>
                     ))}
                   </tr>
@@ -588,34 +570,29 @@ export default function AppointmentsPage() {
                                   {getServiceName(appt.serviceId)}
                                 </span>
                               </td>
-                              {/* Valor + ações */}
+                              {/* Ações */}
                               <td className={cn(
                                 "px-3 py-2",
                                 !isLastProf && "border-r"
                               )}>
-                                <div className="flex items-center justify-between gap-1">
-                                  <span className="text-xs font-semibold text-primary whitespace-nowrap">
-                                    {formatCurrency(appt.servicePrice)}
-                                  </span>
-                                  {appt.status === "scheduled" && (
-                                    <div className="flex gap-0.5 shrink-0">
-                                      <button
-                                        title="Concluir"
-                                        onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "completed" })}
-                                        className="p-0.5 rounded text-green-600 hover:bg-green-50 transition-colors"
-                                      >
-                                        <CheckCircle2 className="h-3 w-3" />
-                                      </button>
-                                      <button
-                                        title="Cancelar"
-                                        onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "cancelled" })}
-                                        className="p-0.5 rounded text-red-500 hover:bg-red-50 transition-colors"
-                                      >
-                                        <XCircle className="h-3 w-3" />
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
+                                {appt.status === "scheduled" && (
+                                  <div className="flex gap-0.5">
+                                    <button
+                                      title="Concluir"
+                                      onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "completed" })}
+                                      className="p-0.5 rounded text-green-600 hover:bg-green-50 transition-colors"
+                                    >
+                                      <CheckCircle2 className="h-3 w-3" />
+                                    </button>
+                                    <button
+                                      title="Cancelar"
+                                      onClick={() => updateStatusMutation.mutate({ id: appt.id, status: "cancelled" })}
+                                      className="p-0.5 rounded text-red-500 hover:bg-red-50 transition-colors"
+                                    >
+                                      <XCircle className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                )}
                               </td>
                             </Fragment>
                           );
@@ -624,36 +601,7 @@ export default function AppointmentsPage() {
                     );
                   })}
                 </tbody>
-                {/* Footer totals */}
-                <tfoot>
-                  <tr className="border-t bg-muted/30">
-                    <td className="px-4 py-3 text-xs font-semibold text-muted-foreground border-r">
-                      Total
-                    </td>
-                    {visibleProfessionals.map((prof, profIdx) => {
-                      const profTotal = selectedDayAppointments
-                        .filter((a) => a.professionalId === prof.id && a.status !== "cancelled")
-                        .reduce((sum, a) => sum + Number(a.servicePrice), 0);
-                      const profCount = selectedDayAppointments
-                        .filter((a) => a.professionalId === prof.id && a.status !== "cancelled").length;
-                      const isLastProf = profIdx === visibleProfessionals.length - 1;
-                      return (
-                        <Fragment key={prof.id}>
-                          <td className="px-3 py-3 text-xs text-muted-foreground">
-                            {profCount} atend.
-                          </td>
-                          <td className="px-3 py-3" />
-                          <td className={cn(
-                            "px-3 py-3 text-right font-bold text-primary",
-                            !isLastProf && "border-r"
-                          )}>
-                            {formatCurrency(profTotal)}
-                          </td>
-                        </Fragment>
-                      );
-                    })}
-                  </tr>
-                </tfoot>
+
               </table>
             </div>
           )}
