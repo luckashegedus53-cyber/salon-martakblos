@@ -25,8 +25,13 @@ import {
   Users,
   Wallet,
   Percent,
+  Tag,
+  Check,
+  X,
+  Pencil,
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
+import { toast } from "sonner";
 import { useLocation } from "wouter";
 
 const fmt = (v: number) =>
@@ -242,7 +247,16 @@ export default function DashboardPage() {
             <Percent className="h-3.5 w-3.5" />
             Comissões
           </TabsTrigger>
+          <TabsTrigger value="prices" className="gap-2 text-sm">
+            <Tag className="h-3.5 w-3.5" />
+            Preços
+          </TabsTrigger>
         </TabsList>
+
+        {/* ── PRICES ── */}
+        <TabsContent value="prices" className="mt-6">
+          <ServicePricesTab />
+        </TabsContent>
 
         {/* ── DAILY ── */}
         <TabsContent value="daily" className="mt-6 space-y-6">
@@ -653,6 +667,163 @@ export default function DashboardPage() {
           )}
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function ServicePricesTab() {
+  const utils = trpc.useUtils();
+  const { data: services = [], isLoading } = trpc.services.list.useQuery({ activeOnly: false });
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  const updateMutation = trpc.services.update.useMutation({
+    onSuccess: () => {
+      toast.success("Preço atualizado!");
+      utils.services.list.invalidate();
+      setEditingId(null);
+    },
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
+
+  function startEdit(id: number, currentPrice: string) {
+    setEditingId(id);
+    setEditValue(parseFloat(currentPrice).toFixed(2).replace(".", ","));
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditValue("");
+  }
+
+  function saveEdit(id: number) {
+    const normalized = editValue.replace(/\./g, "").replace(",", ".");
+    const num = parseFloat(normalized);
+    if (isNaN(num) || num < 0) {
+      toast.error("Valor inválido");
+      return;
+    }
+    updateMutation.mutate({ id, price: num.toFixed(2) });
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const active = services.filter((s: { active?: boolean }) => s.active !== false);
+  const inactive = services.filter((s: { active?: boolean }) => s.active === false);
+
+  function ServiceTable({ items, title }: { items: typeof services; title?: string }) {
+    if (items.length === 0) return null;
+    return (
+      <div className="bg-card rounded-xl border p-5">
+        {title && <h3 className="font-serif text-lg mb-4">{title}</h3>}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Serviço</th>
+                <th className="text-right py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Duração</th>
+                <th className="text-right py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Preço</th>
+                <th className="w-20"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {items.map((svc: { id: number; name: string; price: string; durationMinutes?: number }) => (
+                <tr key={svc.id} className="hover:bg-muted/20 transition-colors">
+                  <td className="py-3">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                        style={{ background: "oklch(0.58 0.09 25 / 0.1)", color: "oklch(0.58 0.09 25)" }}
+                      >
+                        <Tag className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="text-sm font-medium">{svc.name}</span>
+                    </div>
+                  </td>
+                  <td className="py-3 text-right text-sm text-muted-foreground">
+                    {svc.durationMinutes ? `${svc.durationMinutes} min` : "—"}
+                  </td>
+                  <td className="py-3 text-right">
+                    {editingId === svc.id ? (
+                      <div className="flex items-center justify-end gap-1">
+                        <span className="text-sm text-muted-foreground">R$</span>
+                        <input
+                          autoFocus
+                          className="w-28 border rounded-md px-2 py-1 text-sm text-right bg-background"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveEdit(svc.id);
+                            if (e.key === "Escape") cancelEdit();
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-sm font-semibold">
+                        {parseFloat(svc.price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      {editingId === svc.id ? (
+                        <>
+                          <button
+                            onClick={() => saveEdit(svc.id)}
+                            disabled={updateMutation.isPending}
+                            className="p-1.5 rounded-md hover:bg-green-100 text-green-600 transition-colors"
+                            title="Salvar"
+                          >
+                            {updateMutation.isPending ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Check className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                          <button
+                            onClick={cancelEdit}
+                            className="p-1.5 rounded-md hover:bg-red-100 text-red-500 transition-colors"
+                            title="Cancelar"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => startEdit(svc.id, svc.price)}
+                          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                          title="Editar preço"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-serif text-xl">Tabela de Preços</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Clique no lápis para editar o preço de um serviço. Pressione Enter para salvar ou Esc para cancelar.
+        </p>
+      </div>
+      <ServiceTable items={active} />
+      {inactive.length > 0 && <ServiceTable items={inactive} title="Serviços Inativos" />}
     </div>
   );
 }
