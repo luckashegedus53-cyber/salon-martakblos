@@ -441,26 +441,23 @@ export default function AppointmentsPage() {
             </div>
           ) : (
             <div className="bg-card rounded-xl border shadow-sm overflow-x-auto">
-              <table className="text-sm border-collapse" style={{ minWidth: `${80 + visibleProfessionals.length * 300}px`, tableLayout: 'fixed', width: '100%' }}>
+              <table className="text-sm border-collapse" style={{ minWidth: `${visibleProfessionals.length * 380}px`, tableLayout: 'fixed', width: '100%' }}>
                 <colgroup>
-                  <col style={{ width: '80px' }} />
                   {visibleProfessionals.map((prof) => (
                     <Fragment key={prof.id}>
-                      <col style={{ width: '120px' }} />
-                      <col style={{ width: '120px' }} />
-                      <col style={{ width: '90px' }} />
+                      <col style={{ width: '70px' }} />
+                      <col style={{ width: '130px' }} />
+                      <col style={{ width: '130px' }} />
+                      <col style={{ width: '80px' }} />
                     </Fragment>
                   ))}
                 </colgroup>
                 <thead>
                   <tr className="border-b bg-muted/40">
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-muted-foreground border-r sticky left-0 bg-muted/40 z-10">
-                      HORA
-                    </th>
                     {visibleProfessionals.map((prof, idx) => (
                       <th
                         key={prof.id}
-                        colSpan={3}
+                        colSpan={4}
                         className={cn(
                           "px-3 py-3 text-center font-serif font-semibold text-foreground",
                           idx < visibleProfessionals.length - 1 && "border-r"
@@ -476,50 +473,29 @@ export default function AppointmentsPage() {
                     ))}
                   </tr>
                   <tr className="border-b bg-muted/20 text-xs text-muted-foreground">
-                    <th className="px-3 py-2 border-r sticky left-0 bg-muted/20 z-10" />
                     {visibleProfessionals.map((prof, idx) => (
                       <Fragment key={prof.id}>
+                        <th className="px-3 py-2 text-left font-semibold text-muted-foreground">
+                          HORA
+                        </th>
                         <th className="px-3 py-2 text-left font-medium">
                           Cliente
                         </th>
                         <th className="px-3 py-2 text-left font-medium">
                           Serviço
                         </th>
-
+                        <th className={cn("px-3 py-2", idx < visibleProfessionals.length - 1 && "border-r")} />
                       </Fragment>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {TIME_SLOTS.map((slot) => {
-                    const hasAny = visibleProfessionals.some((prof) =>
-                      selectedDayAppointments.some((a) => {
-                        // Usar timeSlot (string "HH:MM") para comparação sem problemas de timezone
-                        const matchSlot = a.timeSlot ? a.timeSlot === slot : false;
-                        return a.professionalId === prof.id &&
-                          a.status !== "cancelled" &&
-                          matchSlot;
-                      })
-                    );
-
                     return (
                       <tr
                         key={slot}
-                        className={cn(
-                          "border-b last:border-b-0 transition-colors",
-                          hasAny ? "bg-accent/10" : "hover:bg-muted/20"
-                        )}
+                        className="border-b last:border-b-0 transition-colors hover:bg-muted/20"
                       >
-                        {/* Hora */}
-                        <td className="px-4 py-2.5 border-r">
-                          <span className={cn(
-                            "font-mono text-xs font-semibold",
-                            hasAny ? "text-primary" : "text-muted-foreground"
-                          )}>
-                            {slot}
-                          </span>
-                        </td>
-
                         {/* Células por profissional */}
                         {visibleProfessionals.map((prof, profIdx) => {
                           // Priorizar agendamento ativo (scheduled/completed) sobre cancelado no mesmo slot
@@ -534,6 +510,10 @@ export default function AppointmentsPage() {
                           if (!appt || appt.status === "cancelled") {
                             return (
                               <Fragment key={`${prof.id}-${slot}-empty`}>
+                                {/* Hora */}
+                                <td className="px-3 py-2.5">
+                                  <span className="font-mono text-xs font-semibold text-muted-foreground">{slot}</span>
+                                </td>
                                 <td
                                   colSpan={3}
                                   className={cn(
@@ -553,6 +533,10 @@ export default function AppointmentsPage() {
                           const statusCfg = STATUS_CONFIG[appt.status];
                           return (
                             <Fragment key={`${prof.id}-${slot}-appt`}>
+                              {/* Hora */}
+                              <td className="px-3 py-2.5">
+                                <span className="font-mono text-xs font-semibold text-primary">{slot}</span>
+                              </td>
                               {/* Cliente */}
                               <td className="px-3 py-2 overflow-hidden">
                                 <div className="flex flex-col">
