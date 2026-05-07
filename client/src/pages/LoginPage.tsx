@@ -47,7 +47,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="flex flex-col items-center gap-3">
           <img
-            src="/manus-storage/kblos-logo_b2aad3c4.jpeg"
+            src="/kblos-logo.jpeg"
             alt="Marta Kblo's"
             className="w-24 h-24 rounded-full object-cover"
             style={{ border: "2px solid oklch(0.68 0.085 25 / 0.5)" }}
