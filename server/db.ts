@@ -357,9 +357,11 @@ export async function createAppointmentWithServices(
   // Inserir agendamento principal
   const [result] = await db.insert(appointments).values(apptData);
   const apptId = (result as { insertId: number }).insertId;
-  // Inserir serviços filhos um a um (MySQL2 não suporta multi-row insert via Drizzle)
+  // Inserir serviços filhos via SQL raw (Drizzle + MySQL2 tem bug com DEFAULT em multi-insert)
   for (const s of svcItems) {
-    await db.insert(appointmentServices).values({ ...s, appointmentId: apptId });
+    await db.execute(
+      sql`INSERT INTO appointment_services (appointmentId, serviceId, serviceName, price, commissionPct, commissionValue) VALUES (${apptId}, ${s.serviceId}, ${s.serviceName}, ${s.price}, ${s.commissionPct}, ${s.commissionValue})`
+    );
   }
   return apptId;
 }
@@ -415,9 +417,11 @@ export async function replaceAppointmentServices(
   if (!db) throw new Error("DB not available");
   // Apagar serviços antigos
   await db.delete(appointmentServices).where(eq(appointmentServices.appointmentId, appointmentId));
-  // Inserir novos um a um (MySQL2 não suporta multi-row insert via Drizzle)
+  // Inserir novos via SQL raw (Drizzle + MySQL2 tem bug com DEFAULT em multi-insert)
   for (const s of svcItems) {
-    await db.insert(appointmentServices).values({ ...s, appointmentId });
+    await db.execute(
+      sql`INSERT INTO appointment_services (appointmentId, serviceId, serviceName, price, commissionPct, commissionValue) VALUES (${appointmentId}, ${s.serviceId}, ${s.serviceName}, ${s.price}, ${s.commissionPct}, ${s.commissionValue})`
+    );
   }
   // Atualizar totais no agendamento principal
   const label = svcItems.map((s) => s.serviceName).join(" + ");
