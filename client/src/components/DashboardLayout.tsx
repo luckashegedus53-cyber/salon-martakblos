@@ -157,14 +157,21 @@ function DashboardLayoutContent({
                 <PanelLeft className="h-4 w-4" />
               </button>
               {!isCollapsed && (
-                <div className="flex flex-col min-w-0">
-                  <span className="font-serif text-sidebar-foreground text-lg leading-tight">
-                    Atelier
-                  </span>
-                  <span className="text-[10px] tracking-[0.2em] uppercase"
-                    style={{ color: "oklch(0.68 0.085 25)" }}>
-                    Gestão
-                  </span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <img
+                    src="/manus-storage/kblos-logo_b2aad3c4.jpeg"
+                    alt="Marta Kblo's"
+                    className="h-9 w-9 rounded-full object-cover shrink-0"
+                  />
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-serif text-sidebar-foreground text-base leading-tight">
+                      Marta Kblo's
+                    </span>
+                    <span className="text-[10px] tracking-[0.2em] uppercase"
+                      style={{ color: "oklch(0.68 0.085 25)" }}>
+                      Gestão
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
@@ -255,7 +262,7 @@ function DashboardLayoutContent({
           <div className="flex border-b h-14 items-center justify-between bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">
             <div className="flex items-center gap-3">
               <SidebarTrigger className="h-9 w-9 rounded-lg" />
-              <span className="font-serif text-lg">{activeMenuItem?.label ?? "Atelier"}</span>
+              <span className="font-serif text-lg">{activeMenuItem?.label ?? "Marta Kblo's"}</span>
             </div>
             {isAdmin && (
               <Badge variant="outline" className="text-[10px] tracking-wide" style={{ color: "oklch(0.58 0.09 25)", borderColor: "oklch(0.58 0.09 25 / 0.3)" }}>

@@ -46,17 +46,14 @@ export default function LoginPage() {
       <div className="flex flex-col items-center gap-8 p-10 max-w-sm w-full mx-4">
         {/* Logo */}
         <div className="flex flex-col items-center gap-3">
-          <div
-            className="w-16 h-16 rounded-full flex items-center justify-center"
-            style={{
-              background: "oklch(0.68 0.085 25 / 0.15)",
-              border: "1px solid oklch(0.68 0.085 25 / 0.3)",
-            }}
-          >
-            <Scissors className="w-7 h-7" style={{ color: "oklch(0.68 0.085 25)" }} />
-          </div>
+          <img
+            src="/manus-storage/kblos-logo_b2aad3c4.jpeg"
+            alt="Marta Kblo's"
+            className="w-24 h-24 rounded-full object-cover"
+            style={{ border: "2px solid oklch(0.68 0.085 25 / 0.5)" }}
+          />
           <div className="text-center">
-            <h1 className="text-3xl font-serif text-white tracking-wide">Atelier</h1>
+            <h1 className="text-3xl font-serif text-white tracking-wide">Marta Kblo's</h1>
             <p
               className="text-xs tracking-[0.25em] uppercase mt-1"
               style={{ color: "oklch(0.68 0.085 25)" }}
