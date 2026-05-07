@@ -397,6 +397,33 @@ const authRouter = router({
   }),
 });
 
+// ─── Migration Router (temporary) ──────────────────────────────────────────
+const migrationRouter = router({
+  createAppointmentServicesTable: publicProcedure.mutation(async () => {
+    const mysql = await import("mysql2/promise");
+    const conn = await mysql.createConnection(process.env.DATABASE_URL!);
+    try {
+      await conn.execute(`
+        CREATE TABLE IF NOT EXISTS \`appointment_services\` (
+          \`id\` int NOT NULL AUTO_INCREMENT,
+          \`appointmentId\` int NOT NULL,
+          \`serviceId\` int NOT NULL,
+          \`serviceName\` varchar(255) NOT NULL,
+          \`price\` decimal(10,2) NOT NULL,
+          \`commissionPct\` decimal(5,2) NOT NULL,
+          \`commissionValue\` decimal(10,2) NOT NULL,
+          \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`id\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      const [rows] = await conn.execute('SHOW TABLES LIKE "appointment_services"') as any;
+      return { success: true, exists: rows.length > 0 };
+    } finally {
+      conn.end();
+    }
+  }),
+});
+
 // ─── App Router ───────────────────────────────────────────────────────────────
 export const appRouter = router({
   system: systemRouter,
@@ -406,6 +433,7 @@ export const appRouter = router({
   commission: commissionRouter,
   appointments: appointmentsRouter,
   financial: financialRouter,
+  migration: migrationRouter,
 });
 
 export type AppRouter = typeof appRouter;
