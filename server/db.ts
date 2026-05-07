@@ -346,24 +346,46 @@ export async function createAppointment(data: InsertAppointment) {
 
 /**
  * Cria um agendamento com múltiplos serviços.
- * Insere o agendamento principal e os serviços filhos em uma transação.
+ * Usa mysql2 diretamente para evitar bugs do Drizzle ORM com DEFAULT no MySQL2.
  */
 export async function createAppointmentWithServices(
   apptData: InsertAppointment,
   svcItems: InsertAppointmentService[]
 ) {
-  const db = await getDb();
-  if (!db) throw new Error("DB not available");
-  // Inserir agendamento principal
-  const [result] = await db.insert(appointments).values(apptData);
-  const apptId = (result as { insertId: number }).insertId;
-  // Inserir serviços filhos via SQL raw (Drizzle + MySQL2 tem bug com DEFAULT em multi-insert)
-  for (const s of svcItems) {
-    await db.execute(
-      sql`INSERT INTO appointment_services (appointmentId, serviceId, serviceName, price, commissionPct, commissionValue) VALUES (${apptId}, ${s.serviceId}, ${s.serviceName}, ${s.price}, ${s.commissionPct}, ${s.commissionValue})`
-    );
+  if (!ENV.databaseUrl) throw new Error("DATABASE_URL not set");
+  const mysql = await import("mysql2/promise");
+  const conn = await mysql.createConnection(ENV.databaseUrl);
+  try {
+    // Inserir agendamento principal via SQL raw
+    const [result] = await conn.execute(
+      `INSERT INTO appointments (clientName, clientPhone, professionalId, serviceId, scheduledAt, timeSlot, servicePrice, commissionPct, commissionValue, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        apptData.clientName,
+        apptData.clientPhone ?? null,
+        apptData.professionalId,
+        apptData.serviceId,
+        apptData.scheduledAt,
+        apptData.timeSlot ?? null,
+        apptData.servicePrice,
+        apptData.commissionPct,
+        apptData.commissionValue,
+        apptData.status ?? "scheduled",
+        apptData.notes ?? null,
+      ]
+    ) as [{ insertId: number }, unknown];
+    const apptId = result.insertId;
+    if (!apptId) throw new Error("Falha ao criar agendamento: insertId inválido");
+    // Inserir serviços filhos via SQL raw
+    for (const s of svcItems) {
+      await conn.execute(
+        `INSERT INTO appointment_services (appointmentId, serviceId, serviceName, price, commissionPct, commissionValue) VALUES (?, ?, ?, ?, ?, ?)`,
+        [apptId, s.serviceId, s.serviceName, s.price, s.commissionPct, s.commissionValue]
+      );
+    }
+    return apptId;
+  } finally {
+    conn.end();
   }
-  return apptId;
 }
 
 /**
