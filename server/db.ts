@@ -357,11 +357,9 @@ export async function createAppointmentWithServices(
   // Inserir agendamento principal
   const [result] = await db.insert(appointments).values(apptData);
   const apptId = (result as { insertId: number }).insertId;
-  // Inserir serviços filhos
-  if (svcItems.length > 0) {
-    await db.insert(appointmentServices).values(
-      svcItems.map((s) => ({ ...s, appointmentId: apptId }))
-    );
+  // Inserir serviços filhos um a um (MySQL2 não suporta multi-row insert via Drizzle)
+  for (const s of svcItems) {
+    await db.insert(appointmentServices).values({ ...s, appointmentId: apptId });
   }
   return apptId;
 }
@@ -417,11 +415,9 @@ export async function replaceAppointmentServices(
   if (!db) throw new Error("DB not available");
   // Apagar serviços antigos
   await db.delete(appointmentServices).where(eq(appointmentServices.appointmentId, appointmentId));
-  // Inserir novos
-  if (svcItems.length > 0) {
-    await db.insert(appointmentServices).values(
-      svcItems.map((s) => ({ ...s, appointmentId }))
-    );
+  // Inserir novos um a um (MySQL2 não suporta multi-row insert via Drizzle)
+  for (const s of svcItems) {
+    await db.insert(appointmentServices).values({ ...s, appointmentId });
   }
   // Atualizar totais no agendamento principal
   const label = svcItems.map((s) => s.serviceName).join(" + ");
