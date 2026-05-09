@@ -28,6 +28,11 @@ import {
   getServiceById,
   getServices,
   getUserByUsername,
+  getReminders,
+  createReminder,
+  updateReminder,
+  deleteReminder,
+  getTomorrowReminders,
   replaceAppointmentServices,
   resolveCommissionPct,
   updateAppointment,
@@ -397,6 +402,58 @@ const authRouter = router({
   }),
 });
 
+// ─── Reminders Router ───────────────────────────────────────────────────────
+const remindersRouter = router({
+  list: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+    return getReminders();
+  }),
+  tomorrow: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+    return getTomorrowReminders();
+  }),
+  create: protectedProcedure
+    .input(z.object({
+      title: z.string().min(1),
+      description: z.string().optional(),
+      reminderDate: z.string(), // ISO string
+    }))
+    .mutation(async ({ input, ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      await createReminder({
+        title: input.title,
+        description: input.description,
+        reminderDate: new Date(input.reminderDate),
+      });
+      return { success: true };
+    }),
+  update: protectedProcedure
+    .input(z.object({
+      id: z.number(),
+      title: z.string().min(1).optional(),
+      description: z.string().optional(),
+      reminderDate: z.string().optional(),
+      done: z.boolean().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      await updateReminder(input.id, {
+        title: input.title,
+        description: input.description,
+        reminderDate: input.reminderDate ? new Date(input.reminderDate) : undefined,
+        done: input.done,
+      });
+      return { success: true };
+    }),
+  delete: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      await deleteReminder(input.id);
+      return { success: true };
+    }),
+});
+
 // ─── App Router ───────────────────────────────────────────────────────────────
 export const appRouter = router({
   system: systemRouter,
@@ -406,6 +463,7 @@ export const appRouter = router({
   commission: commissionRouter,
   appointments: appointmentsRouter,
   financial: financialRouter,
+  reminders: remindersRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -11,6 +11,9 @@ import ProfessionalsPage from "./pages/ProfessionalsPage";
 import ServicesPage from "./pages/ServicesPage";
 import CommissionsPage from "./pages/CommissionsPage";
 import LoginPage from "./pages/LoginPage";
+import RemindersPage from "./pages/RemindersPage";
+import ReminderChatbot from "./components/ReminderChatbot";
+import { useAuth } from "./_core/hooks/useAuth";
 
 function Router() {
   return (
@@ -27,13 +30,21 @@ function Router() {
             <Route path="/professionals" component={ProfessionalsPage} />
             <Route path="/services" component={ServicesPage} />
             <Route path="/commissions" component={CommissionsPage} />
+            <Route path="/reminders" component={RemindersPage} />
             <Route path="/404" component={NotFound} />
             <Route component={NotFound} />
           </Switch>
+          <AdminChatbot />
         </DashboardLayout>
       </Route>
     </Switch>
   );
+}
+
+function AdminChatbot() {
+  const { user } = useAuth();
+  if (user?.role !== "admin") return null;
+  return <ReminderChatbot />;
 }
 
 function App() {

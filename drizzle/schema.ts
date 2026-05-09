@@ -110,3 +110,17 @@ export const appointmentServices = mysqlTable("appointment_services", {
 
 export type AppointmentService = typeof appointmentServices.$inferSelect;
 export type InsertAppointmentService = typeof appointmentServices.$inferInsert;
+
+// Lembretes do admin
+export const reminders = mysqlTable("reminders", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  reminderDate: timestamp("reminderDate").notNull(), // data/hora do evento
+  done: boolean("done").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Reminder = typeof reminders.$inferSelect;
+export type InsertReminder = typeof reminders.$inferInsert;

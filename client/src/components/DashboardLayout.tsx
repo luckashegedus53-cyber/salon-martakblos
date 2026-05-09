@@ -24,6 +24,7 @@ import {
 import { useIsMobile } from "@/hooks/useMobile";
 import {
   BarChart3,
+  Bell,
   CalendarDays,
   ChevronDown,
   LogOut,
@@ -45,6 +46,7 @@ const adminMenuItems = [
   { icon: Users, label: "Profissionais", path: "/professionals" },
   { icon: Scissors, label: "Serviços", path: "/services" },
   { icon: Sparkles, label: "Comissões", path: "/commissions" },
+  { icon: Bell, label: "Lembretes", path: "/reminders" },
 ];
 
 const professionalMenuItems = [

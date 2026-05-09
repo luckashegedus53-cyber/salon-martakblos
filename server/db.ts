@@ -13,6 +13,8 @@ import {
   professionals,
   services,
   users,
+  reminders,
+  Reminder,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -638,4 +640,73 @@ export async function getFinancialSummary(startDate: Date, endDate: Date): Promi
     appointmentCount: rows.length,
     byProfessional: Object.values(byProf),
   };
+}
+
+// ─── Reminders ───────────────────────────────────────────────────────────────
+
+
+
+export async function getReminders(): Promise<Reminder[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(reminders).orderBy(reminders.reminderDate) as unknown as Reminder[];
+}
+
+export async function createReminder(data: {
+  title: string;
+  description?: string;
+  reminderDate: Date;
+}): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(reminders).values({
+    title: data.title,
+    description: data.description ?? null,
+    reminderDate: data.reminderDate,
+    done: false,
+  });
+}
+
+export async function updateReminder(id: number, data: {
+  title?: string;
+  description?: string;
+  reminderDate?: Date;
+  done?: boolean;
+}): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const updateSet: Record<string, unknown> = {};
+  if (data.title !== undefined) updateSet.title = data.title;
+  if (data.description !== undefined) updateSet.description = data.description;
+  if (data.reminderDate !== undefined) updateSet.reminderDate = data.reminderDate;
+  if (data.done !== undefined) updateSet.done = data.done;
+  if (Object.keys(updateSet).length === 0) return;
+  await db.update(reminders).set(updateSet).where(eq(reminders.id, id));
+}
+
+export async function deleteReminder(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(reminders).where(eq(reminders.id, id));
+}
+
+/** Retorna lembretes cujo reminderDate é amanhã (entre 00:00 e 23:59 de amanhã no horário BRT) */
+export async function getTomorrowReminders(): Promise<Reminder[]> {
+  const db = await getDb();
+  if (!db) return [];
+  // BRT = UTC-3
+  const now = new Date();
+  const tomorrowStart = new Date(now);
+  tomorrowStart.setUTCHours(tomorrowStart.getUTCHours() + 21); // 00:00 BRT = 03:00 UTC
+  tomorrowStart.setUTCHours(3, 0, 0, 0);
+  // Calcular amanhã corretamente
+  const tomorrowBRT = new Date(now.getTime() + 3 * 60 * 60 * 1000); // agora em BRT
+  const tomorrowBRTDate = new Date(tomorrowBRT);
+  tomorrowBRTDate.setDate(tomorrowBRTDate.getDate() + 1);
+  const startUTC = new Date(Date.UTC(tomorrowBRTDate.getFullYear(), tomorrowBRTDate.getMonth(), tomorrowBRTDate.getDate(), 3, 0, 0, 0));
+  const endUTC = new Date(startUTC.getTime() + 24 * 60 * 60 * 1000 - 1);
+  return db
+    .select()
+    .from(reminders)
+    .where(and(gte(reminders.reminderDate, startUTC), lte(reminders.reminderDate, endUTC))) as unknown as Reminder[];
 }

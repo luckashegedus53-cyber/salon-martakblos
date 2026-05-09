@@ -119,3 +119,15 @@
 - [ ] Atualizar container no Dokploy com nova imagem standalone
 - [ ] Configurar registros DNS A no registro.br (martakblos.com.br → 212.85.12.179)
 - [ ] Verificar deploy final em https://martakblos.com.br
+
+## Chatbot de Lembretes (Admin)
+- [ ] Gerar avatar melhorado da robô cabeleireira com IA
+- [ ] Schema: tabela `reminders` (id, title, description, reminderDate, notifiedAt, createdAt)
+- [ ] Migração SQL aplicada no banco de produção
+- [ ] db.ts: funções getReminders, createReminder, updateReminder, deleteReminder, getPendingReminders
+- [ ] routers.ts: endpoints CRUD de reminders (protectedProcedure + admin check)
+- [ ] Frontend: aba "Lembretes" no sidebar do admin
+- [ ] Frontend: página RemindersPage com lista de lembretes e formulário de criação
+- [ ] Frontend: chatbot flutuante com avatar da robô (visível só para admin)
+- [ ] Chatbot exibe lembretes do dia seguinte ao abrir/carregar
+- [ ] Chatbot permite conversa básica sobre lembretes
