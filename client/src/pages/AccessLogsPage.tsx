@@ -1,10 +1,26 @@
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Shield, User, Clock } from "lucide-react";
+import { Shield, User, Clock, AlertCircle } from "lucide-react";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { useLocation } from "wouter";
+import { useEffect } from "react";
 
 export default function AccessLogsPage() {
-  const { data: logs, isLoading } = trpc.logs.lastAccess.useQuery();
+  const { user } = useAuth();
+  const [, setLocation] = useLocation();
+
+  // Redirecionar não-admin para a agenda
+  useEffect(() => {
+    if (user && user.role !== "admin") {
+      setLocation("/");
+    }
+  }, [user, setLocation]);
+
+  const { data: logs, isLoading, isError } = trpc.logs.lastAccess.useQuery(
+    undefined,
+    { enabled: user?.role === "admin" }
+  );
 
   const formatDate = (date: Date | string) => {
     const d = new Date(date);
@@ -17,6 +33,8 @@ export default function AccessLogsPage() {
       second: "2-digit",
     });
   };
+
+  if (user?.role !== "admin") return null;
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -40,6 +58,12 @@ export default function AccessLogsPage() {
               {[1, 2, 3].map((i) => (
                 <div key={i} className="h-14 bg-muted animate-pulse rounded-lg" />
               ))}
+            </div>
+          ) : isError ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <AlertCircle className="w-10 h-10 mx-auto mb-3 opacity-40 text-destructive" />
+              <p className="text-sm text-destructive">Erro ao carregar logs de acesso.</p>
+              <p className="text-xs mt-1">Tente recarregar a página.</p>
             </div>
           ) : !logs || logs.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
