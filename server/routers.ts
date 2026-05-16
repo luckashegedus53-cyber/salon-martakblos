@@ -467,6 +467,71 @@ const logsRouter = router({
   }),
 });
 
+// ─── Setup Router (endpoint temporário para inicializar produção) ─────────────────
+const setupRouter = router({
+  initProd: publicProcedure
+    .input(z.object({ secret: z.string() }))
+    .mutation(async ({ input }) => {
+      if (input.secret !== "KBLOS_SETUP_2026") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Invalid secret" });
+      }
+      const mysql = await import("mysql2/promise");
+      const conn = await mysql.default.createConnection(process.env.DATABASE_URL!);
+      const results: string[] = [];
+      try {
+        // Criar tabela access_logs se não existir
+        await conn.execute(`
+          CREATE TABLE IF NOT EXISTS access_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            userId INT NOT NULL,
+            userName VARCHAR(100) NOT NULL,
+            role VARCHAR(20) NOT NULL DEFAULT 'user',
+            ip VARCHAR(50),
+            userAgent TEXT,
+            createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_userId (userId),
+            INDEX idx_createdAt (createdAt)
+          )
+        `);
+        results.push("access_logs table: OK");
+
+        // Upsert de todos os usuários
+        const usersToCreate = [
+          { username: "admin", password: "MR1313", name: "Administrador", role: "admin" },
+          { username: "marta", password: "marta", name: "Marta", role: "user" },
+          { username: "bia", password: "bia", name: "Bia", role: "user" },
+          { username: "glei", password: "glei", name: "Glei", role: "user" },
+          { username: "janaina", password: "janaina", name: "Janaina", role: "user" },
+          { username: "maysa", password: "maysa", name: "Maysa", role: "user" },
+          { username: "viviane", password: "viviane", name: "Viviane", role: "user" },
+        ];
+        for (const u of usersToCreate) {
+          const hash = await bcrypt.hash(u.password, 10);
+          const openId = `local:${u.username}`;
+          await conn.execute(
+            `INSERT INTO users (openId, username, passwordHash, name, role, loginMethod, lastSignedIn)
+             VALUES (?, ?, ?, ?, ?, 'local', NOW())
+             ON DUPLICATE KEY UPDATE passwordHash=VALUES(passwordHash), name=VALUES(name), role=VALUES(role)`,
+            [openId, u.username, hash, u.name, u.role]
+          );
+          results.push(`user ${u.username}: OK`);
+        }
+
+        // Adicionar serviço Outros se não existir
+        await conn.execute(
+          `INSERT IGNORE INTO services (name, description, durationMinutes, price, defaultCommissionPct, active)
+           SELECT 'Outros', 'Serviço genérico', 30, 0.00, 50.00, 1
+           FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM services WHERE name='Outros')`
+        );
+        results.push("service Outros: OK");
+
+        return { success: true, results };
+      } finally {
+        await conn.end();
+      }
+    }),
+});
+
 // ─── App Router ───────────────────────────────────────────────────────────────
 export const appRouter = router({
   system: systemRouter,
@@ -478,6 +543,7 @@ export const appRouter = router({
   financial: financialRouter,
   reminders: remindersRouter,
   logs: logsRouter,
+  setup: setupRouter,
 });
 
 export type AppRouter = typeof appRouter;
