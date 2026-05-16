@@ -1,0 +1,9 @@
+{
+  "query": "\nCREATE TABLE IF NOT EXISTS access_logs (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  userId INT NOT NULL,\n  userName VARCHAR(100) NOT NULL,\n  role VARCHAR(20) NOT NULL DEFAULT 'user',\n  ip VARCHAR(50),\n  userAgent TEXT,\n  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n  INDEX idx_userId (userId),\n  INDEX idx_createdAt (createdAt)\n);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 46cbc1vsr3mJ5gL.54b447c96361 --database 4eNQWSZhGCJTohuK9aDhoq --execute \nCREATE TABLE IF NOT EXISTS access_logs (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  userId INT NOT NULL,\n  userName VARCHAR(100) NOT NULL,\n  role VARCHAR(20) NOT NULL DEFAULT 'user',\n  ip VARCHAR(50),\n  userAgent TEXT,\n  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n  INDEX idx_userId (userId),\n  INDEX idx_createdAt (createdAt)\n);\n",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 372
+}

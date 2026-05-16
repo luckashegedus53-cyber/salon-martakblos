@@ -124,3 +124,17 @@ export const reminders = mysqlTable("reminders", {
 
 export type Reminder = typeof reminders.$inferSelect;
 export type InsertReminder = typeof reminders.$inferInsert;
+
+// Logs de acesso
+export const accessLogs = mysqlTable("access_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  userName: varchar("userName", { length: 100 }).notNull(),
+  role: varchar("role", { length: 20 }).notNull().default("user"),
+  ip: varchar("ip", { length: 50 }),
+  userAgent: text("userAgent"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AccessLog = typeof accessLogs.$inferSelect;
+export type InsertAccessLog = typeof accessLogs.$inferInsert;

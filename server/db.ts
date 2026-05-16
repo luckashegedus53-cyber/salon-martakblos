@@ -15,6 +15,8 @@ import {
   users,
   reminders,
   Reminder,
+  accessLogs,
+  AccessLog,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -709,4 +711,58 @@ export async function getTomorrowReminders(): Promise<Reminder[]> {
     .select()
     .from(reminders)
     .where(and(gte(reminders.reminderDate, startUTC), lte(reminders.reminderDate, endUTC))) as unknown as Reminder[];
+}
+
+// ─── Access Logs ─────────────────────────────────────────────────────────────
+
+export async function createAccessLog(data: {
+  userId: number;
+  userName: string;
+  role: string;
+  ip?: string;
+  userAgent?: string;
+}): Promise<void> {
+  const mysql = await import("mysql2/promise");
+  const conn = await mysql.default.createConnection(process.env.DATABASE_URL!);
+  try {
+    await conn.execute(
+      "INSERT INTO access_logs (userId, userName, role, ip, userAgent) VALUES (?, ?, ?, ?, ?)",
+      [data.userId, data.userName, data.role, data.ip ?? null, data.userAgent ?? null]
+    );
+  } finally {
+    await conn.end();
+  }
+}
+
+export async function getAccessLogs(limit = 100): Promise<AccessLog[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(accessLogs)
+    .orderBy(accessLogs.createdAt)
+    .limit(limit) as unknown as AccessLog[];
+}
+
+export async function getLastAccessPerUser(): Promise<
+  { userId: number; userName: string; role: string; lastAccess: Date }[]
+> {
+  const mysql = await import("mysql2/promise");
+  const conn = await mysql.default.createConnection(process.env.DATABASE_URL!);
+  try {
+    const [rows] = await conn.execute(`
+      SELECT userId, userName, role, MAX(createdAt) as lastAccess
+      FROM access_logs
+      GROUP BY userId, userName, role
+      ORDER BY lastAccess DESC
+    `);
+    return (rows as any[]).map((r) => ({
+      userId: r.userId,
+      userName: r.userName,
+      role: r.role,
+      lastAccess: new Date(r.lastAccess),
+    }));
+  } finally {
+    await conn.end();
+  }
 }

@@ -33,6 +33,8 @@ import {
   updateReminder,
   deleteReminder,
   getTomorrowReminders,
+  createAccessLog,
+  getLastAccessPerUser,
   replaceAppointmentServices,
   resolveCommissionPct,
   updateAppointment,
@@ -392,6 +394,10 @@ const authRouter = router({
       });
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+      // Registrar log de acesso
+      const ip = (ctx.req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || ctx.req.socket?.remoteAddress || "unknown";
+      const userAgent = ctx.req.headers["user-agent"] || "";
+      createAccessLog({ userId: user.id, userName: user.username || user.name || "", role: user.role, ip, userAgent }).catch(() => {});
       return { success: true, user: { id: user.id, name: user.name, role: user.role } };
     }),
 
@@ -454,6 +460,13 @@ const remindersRouter = router({
     }),
 });
 
+// ─── Logs Router ───────────────────────────────────────────────────────────
+const logsRouter = router({
+  lastAccess: adminProcedure.query(async () => {
+    return getLastAccessPerUser();
+  }),
+});
+
 // ─── App Router ───────────────────────────────────────────────────────────────
 export const appRouter = router({
   system: systemRouter,
@@ -464,6 +477,7 @@ export const appRouter = router({
   appointments: appointmentsRouter,
   financial: financialRouter,
   reminders: remindersRouter,
+  logs: logsRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -23,6 +23,7 @@ import {
 // OAuth removido — login próprio em /login
 import { useIsMobile } from "@/hooks/useMobile";
 import {
+  Activity,
   BarChart3,
   Bell,
   CalendarDays,
@@ -47,6 +48,7 @@ const adminMenuItems = [
   { icon: Scissors, label: "Serviços", path: "/services" },
   { icon: Sparkles, label: "Comissões", path: "/commissions" },
   { icon: Bell, label: "Lembretes", path: "/reminders" },
+  { icon: Activity, label: "Logs de Acesso", path: "/access-logs" },
 ];
 
 const professionalMenuItems = [

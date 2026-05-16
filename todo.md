@@ -131,3 +131,10 @@
 - [ ] Frontend: chatbot flutuante com avatar da robô (visível só para admin)
 - [ ] Chatbot exibe lembretes do dia seguinte ao abrir/carregar
 - [ ] Chatbot permite conversa básica sobre lembretes
+
+## Melhorias Admin (16/05/2026)
+- [ ] Adicionar serviço "Outros" no banco de dados
+- [ ] Trocar senha do admin para MR1313
+- [ ] Criar tabela access_logs no banco (userId, userName, role, ip, userAgent, createdAt)
+- [ ] Registrar acesso no login (endpoint auth)
+- [ ] Frontend: aba "Logs de Acesso" no painel admin com tabela de acessos
