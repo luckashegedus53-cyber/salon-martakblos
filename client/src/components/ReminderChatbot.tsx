@@ -6,7 +6,7 @@ import { X, Send, Bell } from "lucide-react";
 import { format, isTomorrow, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-const BOT_AVATAR = "https://d2xsxph8kpxj0f.cloudfront.net/310519663491162941/4eNQWSZhGCJTohuK9aDhoq/bot-avatar-HZS3ygo2WwXb3Mxepmj5BS.webp";
+const BOT_AVATAR = "/manus-storage/logo_marta_242551b9.png";
 
 type Message = {
   id: number;
