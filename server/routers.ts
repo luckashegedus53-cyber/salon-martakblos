@@ -517,13 +517,21 @@ const setupRouter = router({
           results.push(`user ${u.username}: OK`);
         }
 
-        // Adicionar serviço Outros se não existir
-        await conn.execute(
-          `INSERT IGNORE INTO services (name, description, durationMinutes, price, defaultCommissionPct, active)
-           SELECT 'Outros', 'Serviço genérico', 30, 0.00, 50.00, 1
-           FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM services WHERE name='Outros')`
-        );
-        results.push("service Outros: OK");
+        // Adicionar serviços especiais se não existirem
+        const specialServices = [
+          { name: 'Outros', description: 'Serviço genérico', duration: 30, price: 0.00, commission: 50.00 },
+          { name: 'Almoço', description: 'Pausa para almoço', duration: 60, price: 0.00, commission: 0.00 },
+          { name: 'Fechado', description: 'Horário fechado/bloqueado', duration: 30, price: 0.00, commission: 0.00 },
+        ];
+        for (const svc of specialServices) {
+          await conn.execute(
+            `INSERT INTO services (name, description, durationMinutes, price, defaultCommissionPct, active)
+             SELECT ?, ?, ?, ?, ?, 1
+             FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM services WHERE name=?)`,
+            [svc.name, svc.description, svc.duration, svc.price, svc.commission, svc.name]
+          );
+          results.push(`service ${svc.name}: OK`);
+        }
 
         return { success: true, results };
       } finally {
