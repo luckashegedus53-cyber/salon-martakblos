@@ -163,7 +163,7 @@ function DashboardLayoutContent({
               {!isCollapsed && (
                 <div className="flex items-center gap-2 min-w-0">
                   <img
-                    src="/kblos-logo.jpeg"
+                    src="/manus-storage/logo_marta_242551b9.png"
                     alt="Marta Kblo's"
                     className="h-9 w-9 rounded-full object-cover shrink-0"
                   />
