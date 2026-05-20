@@ -193,7 +193,7 @@ const appointmentsRouter = router({
         services: z.array(
           z.object({
             serviceId: z.number(),
-            price: z.number().positive().max(999999.99), // valor editável por serviço
+            price: z.number().min(0).max(999999.99), // valor editável por serviço (0 permitido para Almoço, Fechado, etc)
           })
         ).min(1),
         scheduledAt: z.date(),
@@ -265,7 +265,7 @@ const appointmentsRouter = router({
     .input(
       z.object({
         id: z.number(),
-        servicePrice: z.number().positive().max(999999.99),
+        servicePrice: z.number().min(0).max(999999.99),
       })
     )
     .mutation(async ({ input }) => {
@@ -522,6 +522,7 @@ const setupRouter = router({
           { name: 'Outros', description: 'Serviço genérico', duration: 30, price: 0.00, commission: 50.00 },
           { name: 'Almoço', description: 'Pausa para almoço', duration: 60, price: 0.00, commission: 0.00 },
           { name: 'Fechado', description: 'Horário fechado/bloqueado', duration: 30, price: 0.00, commission: 0.00 },
+          { name: 'Maquiagem', description: 'Maquiagem', duration: 60, price: 0.00, commission: 50.00 },
         ];
         for (const svc of specialServices) {
           await conn.execute(

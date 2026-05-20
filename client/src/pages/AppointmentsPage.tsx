@@ -118,19 +118,18 @@ export default function AppointmentsPage() {
   const { data: professionals = [] } = trpc.professionals.list.useQuery({ activeOnly: true });
   const { data: services = [] } = trpc.services.list.useQuery({ activeOnly: true });
 
-  // startDate: primeiro dia do mês às 00:00 local → em UTC pode ser o dia anterior
-  // endDate: último dia do mês às 23:59:59 local → em UTC pode ser o dia seguinte
-  // Subtraímos 1 dia do start e adicionamos 1 dia ao end para garantir cobertura total
+  // startDate/endDate cobrem o mês do selectedDate (não currentDate)
+  // para que ao navegar para dias futuros na view "book", os agendamentos sejam buscados corretamente
   const startDate = useMemo(() => {
-    const d = startOfMonth(currentDate);
+    const d = startOfMonth(selectedDate);
     d.setDate(d.getDate() - 1);
     return d;
-  }, [currentDate]);
+  }, [selectedDate]);
   const endDate = useMemo(() => {
-    const d = endOfMonth(currentDate);
+    const d = endOfMonth(selectedDate);
     d.setDate(d.getDate() + 1);
     return d;
-  }, [currentDate]);
+  }, [selectedDate]);
 
   const { data: appointments = [], isLoading } = trpc.appointments.list.useQuery({
     professionalId: filterProfessionalId !== "all" ? parseInt(filterProfessionalId) : undefined,
@@ -178,16 +177,16 @@ export default function AppointmentsPage() {
 
   const onSubmit = (values: AppointmentFormValues) => {
     // Validar serviços
-    const validItems = serviceItems.filter((s) => s.serviceId && s.price);
+    const validItems = serviceItems.filter((s) => s.serviceId && s.price !== "");
     if (validItems.length === 0) {
-      toast.error("Adicione pelo menos um serviço com valor.");
+      toast.error("Adicione pelo menos um serviço.");
       return;
     }
     for (const item of validItems) {
       const normalized = item.price.replace(/\./g, "").replace(",", ".");
       const n = parseFloat(normalized);
-      if (isNaN(n) || n <= 0 || n > 999999.99) {
-        toast.error("Valor do serviço inválido. Use o formato: 150,00");
+      if (isNaN(n) || n < 0 || n > 999999.99) {
+        toast.error("Valor do serviço inválido. Use o formato: 150,00 ou 0,00");
         return;
       }
     }
