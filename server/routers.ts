@@ -523,6 +523,8 @@ const setupRouter = router({
           { name: 'Almoço', description: 'Pausa para almoço', duration: 60, price: 0.00, commission: 0.00 },
           { name: 'Fechado', description: 'Horário fechado/bloqueado', duration: 30, price: 0.00, commission: 0.00 },
           { name: 'Maquiagem', description: 'Maquiagem', duration: 60, price: 0.00, commission: 50.00 },
+          { name: 'Avaliação', description: 'Avaliação', duration: 30, price: 0.00, commission: 0.00 },
+          { name: 'Penteado', description: 'Penteado', duration: 60, price: 0.00, commission: 50.00 },
         ];
         for (const svc of specialServices) {
           await conn.execute(
