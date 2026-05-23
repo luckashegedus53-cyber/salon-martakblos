@@ -38,6 +38,7 @@ import {
   replaceAppointmentServices,
   resolveCommissionPct,
   updateAppointment,
+  updateAppointmentCommission,
   updateAppointmentServicePrice,
   updateAppointmentStatus,
   updateProfessional,
@@ -155,7 +156,29 @@ const commissionRouter = router({
         commissionPct: z.string(),
       })
     )
-    .mutation(({ input }) => upsertCommissionRule(input)),
+    .mutation(async ({ input }) => {
+      // Salva a regra
+      await upsertCommissionRule(input);
+      // Recalcula agendamentos existentes afetados pela regra
+      const db = await import('./db');
+      const pct = Number(input.commissionPct);
+      // Buscar agendamentos do profissional (não cancelados)
+      const appts = await db.getAppointments({
+        professionalId: input.professionalId,
+      });
+      let recalculated = 0;
+      for (const appt of appts) {
+        if (appt.status === 'cancelled') continue;
+        // Se a regra é específica por serviço, recalcular apenas os desse serviço
+        if (input.serviceId != null && appt.serviceId !== input.serviceId) continue;
+        // Recalcular com o novo percentual
+        const newPct = await resolveCommissionPct(input.professionalId, appt.serviceId);
+        const newValue = parseFloat((Number(appt.servicePrice) * newPct / 100).toFixed(2));
+        await db.updateAppointmentCommission(appt.id, newPct, newValue);
+        recalculated++;
+      }
+      return { success: true, recalculated };
+    }),
 
   delete: adminProcedure
     .input(z.object({ id: z.number() }))

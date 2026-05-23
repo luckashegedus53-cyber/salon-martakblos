@@ -189,7 +189,7 @@ export default function AppointmentsPage() {
     },
   });
 
-  const onSubmit = (values: AppointmentFormValues) => {
+  const onSubmit = async (values: AppointmentFormValues) => {
     // Validar serviços
     const validItems = serviceItems.filter((s) => s.serviceId && s.price !== "");
     if (validItems.length === 0) {
@@ -208,6 +208,7 @@ export default function AppointmentsPage() {
     // Calcular total e comissão para exibir no modal de confirmação
     const prof = professionals.find((p) => String(p.id) === values.professionalId);
     const profName = prof?.name ?? "";
+    const profId = Number(values.professionalId);
     let totalPrice = 0;
     let totalCommission = 0;
     let totalCommissionPct = 0;
@@ -216,7 +217,14 @@ export default function AppointmentsPage() {
     for (const item of validItems) {
       const svc = services.find((s) => String(s.id) === item.serviceId);
       const price = parseFloat(item.price.replace(/\./g, "").replace(",", "."));
-      const commPct = svc ? Number(svc.defaultCommissionPct) : 50;
+      const svcId = Number(item.serviceId);
+      // Buscar comissão real via backend (considera regras específicas por profissional)
+      let commPct: number;
+      try {
+        commPct = await utils.commission.resolve.fetch({ professionalId: profId, serviceId: svcId });
+      } catch {
+        commPct = svc ? Number(svc.defaultCommissionPct) : 50;
+      }
       const comm = (price * commPct) / 100;
       totalPrice += price;
       totalCommission += comm;

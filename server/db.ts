@@ -591,6 +591,21 @@ export async function updateAppointmentServicePrice(
     .where(eq(appointments.id, id));
 }
 
+export async function updateAppointmentCommission(
+  id: number,
+  commissionPct: number,
+  commissionValue: number
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .update(appointments)
+    .set({
+      commissionPct: String(commissionPct.toFixed(2)),
+      commissionValue: String(commissionValue.toFixed(2)),
+    })
+    .where(eq(appointments.id, id));
+}
 export async function getFinancialSummary(startDate: Date, endDate: Date): Promise<FinancialSummary> {
   const db = await getDb();
   if (!db) {
