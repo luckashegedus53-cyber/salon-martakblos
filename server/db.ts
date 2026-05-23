@@ -492,38 +492,42 @@ export interface FinancialSummary {
   }[];
 }
 
+// Nomes de serviços que não devem ser contados como atendimentos
+const NON_BILLABLE_SERVICES = ['Almoço', 'Fechado'];
+
 export async function getAllProfessionalsWithCommissions(startDate: Date, endDate: Date) {
   const db = await getDb();
   if (!db) return [];
-
   // Buscar todas as profissionais
   const allProfs = await db.select().from(professionals).orderBy(professionals.name);
-
-  // Buscar atendimentos concluídos no período
+  // Buscar atendimentos concluídos no período (com nome do serviço para filtrar bloqueios)
   const rows = await db
     .select({
       professionalId: appointments.professionalId,
       servicePrice: appointments.servicePrice,
       commissionValue: appointments.commissionValue,
+      serviceName: services.name,
     })
     .from(appointments)
+    .leftJoin(services, eq(appointments.serviceId, services.id))
     .where(
       and(
         between(appointments.scheduledAt, startDate, endDate),
         ne(appointments.status, "cancelled")
       )
     );
-
-  // Agrupar por profissional
+  // Agrupar por profissional (excluindo Almoço e Fechado das contagens)
   const byProf: Record<number, { revenue: number; commission: number; count: number }> = {};
   for (const row of rows) {
+    const isNonBillable = NON_BILLABLE_SERVICES.includes(row.serviceName ?? '');
     const profId = row.professionalId;
     if (!byProf[profId]) byProf[profId] = { revenue: 0, commission: 0, count: 0 };
-    byProf[profId]!.revenue += Number(row.servicePrice);
-    byProf[profId]!.commission += Number(row.commissionValue);
-    byProf[profId]!.count += 1;
+    if (!isNonBillable) {
+      byProf[profId]!.revenue += Number(row.servicePrice);
+      byProf[profId]!.commission += Number(row.commissionValue);
+      byProf[profId]!.count += 1;
+    }
   }
-
   // Retornar todas as profissionais, mesmo as com zero atendimentos
   return allProfs.map((prof) => ({
     professionalId: prof.id,
@@ -592,7 +596,6 @@ export async function getFinancialSummary(startDate: Date, endDate: Date): Promi
   if (!db) {
     return { totalRevenue: 0, totalCommission: 0, appointmentCount: 0, byProfessional: [] };
   }
-
   const rows = await db
     .select({
       id: appointments.id,
@@ -601,26 +604,25 @@ export async function getFinancialSummary(startDate: Date, endDate: Date): Promi
       commissionValue: appointments.commissionValue,
       status: appointments.status,
       professionalName: professionals.name,
+      serviceName: services.name,
     })
     .from(appointments)
     .leftJoin(professionals, eq(appointments.professionalId, professionals.id))
+    .leftJoin(services, eq(appointments.serviceId, services.id))
     .where(
       and(
         between(appointments.scheduledAt, startDate, endDate),
         ne(appointments.status, "cancelled")
       )
     );
-
   let totalRevenue = 0;
   let totalCommission = 0;
+  let billableCount = 0;
   const byProf: Record<number, { professionalId: number; professionalName: string; revenue: number; commission: number; count: number }> = {};
-
   for (const row of rows) {
+    const isNonBillable = NON_BILLABLE_SERVICES.includes(row.serviceName ?? '');
     const price = Number(row.servicePrice);
     const commission = Number(row.commissionValue);
-    totalRevenue += price;
-    totalCommission += commission;
-
     const profId = row.professionalId;
     if (!byProf[profId]) {
       byProf[profId] = {
@@ -631,15 +633,19 @@ export async function getFinancialSummary(startDate: Date, endDate: Date): Promi
         count: 0,
       };
     }
-    byProf[profId]!.revenue += price;
-    byProf[profId]!.commission += commission;
-    byProf[profId]!.count += 1;
+    if (!isNonBillable) {
+      totalRevenue += price;
+      totalCommission += commission;
+      billableCount += 1;
+      byProf[profId]!.revenue += price;
+      byProf[profId]!.commission += commission;
+      byProf[profId]!.count += 1;
+    }
   }
-
   return {
     totalRevenue,
     totalCommission,
-    appointmentCount: rows.length,
+    appointmentCount: billableCount,
     byProfessional: Object.values(byProf),
   };
 }

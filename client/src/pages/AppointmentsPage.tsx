@@ -112,6 +112,20 @@ export default function AppointmentsPage() {
   const [prefilledTime, setPrefilledTime] = useState<string>("");
   // Lista de serviços do novo agendamento
   const [serviceItems, setServiceItems] = useState<ServiceItem[]>([{ serviceId: "", price: "" }]);
+  // Modal de confirmação
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingAppt, setPendingAppt] = useState<{
+    values: AppointmentFormValues;
+    validItems: ServiceItem[];
+    totalPrice: number;
+    totalCommission: number;
+    commissionPct: number;
+    profName: string;
+    serviceNames: string;
+    isNonBillable: boolean;
+  } | null>(null);
+  // Serviços que não contam como atendimento
+  const NON_BILLABLE = ['Almoço', 'Fechado'];
 
   const utils = trpc.useUtils();
 
@@ -191,12 +205,48 @@ export default function AppointmentsPage() {
       }
     }
 
+    // Calcular total e comissão para exibir no modal de confirmação
+    const prof = professionals.find((p) => String(p.id) === values.professionalId);
+    const profName = prof?.name ?? "";
+    let totalPrice = 0;
+    let totalCommission = 0;
+    let totalCommissionPct = 0;
+    let isNonBillable = false;
+    const serviceNames: string[] = [];
+    for (const item of validItems) {
+      const svc = services.find((s) => String(s.id) === item.serviceId);
+      const price = parseFloat(item.price.replace(/\./g, "").replace(",", "."));
+      const commPct = svc ? Number(svc.defaultCommissionPct) : 50;
+      const comm = (price * commPct) / 100;
+      totalPrice += price;
+      totalCommission += comm;
+      totalCommissionPct = commPct; // usa o do último serviço como referência
+      serviceNames.push(svc?.name ?? "Serviço");
+      if (svc && NON_BILLABLE.includes(svc.name)) isNonBillable = true;
+    }
+
+    // Abrir modal de confirmação
+    setPendingAppt({
+      values,
+      validItems,
+      totalPrice,
+      totalCommission,
+      commissionPct: totalCommissionPct,
+      profName,
+      serviceNames: serviceNames.join(" + "),
+      isNonBillable,
+    });
+    setShowConfirmModal(true);
+  };
+
+  const confirmAppointment = () => {
+    if (!pendingAppt) return;
+    const { values, validItems } = pendingAppt;
     const baseDate = values.date ?? selectedDate ?? new Date();
     const [hours, minutes] = values.time.split(":").map(Number);
     const scheduledAt = new Date(baseDate);
     scheduledAt.setHours(0, 0, 0, 0);
     scheduledAt.setHours(hours!, minutes!, 0, 0);
-
     createMutation.mutate({
       clientName: values.clientName,
       clientPhone: values.clientPhone || null,
@@ -209,6 +259,8 @@ export default function AppointmentsPage() {
       timeSlot: values.time,
       notes: values.notes || null,
     });
+    setShowConfirmModal(false);
+    setPendingAppt(null);
   };
 
   const openNewModal = (time?: string) => {
@@ -272,27 +324,27 @@ export default function AppointmentsPage() {
     ? professionals.filter((p) => p.id === parseInt(filterProfessionalId))
     : professionals;
 
-  // Total do dia
+  // Total do dia (excluindo Almoço/Fechado)
   const dayTotal = selectedDayAppointments
-    .filter((a) => a.status !== "cancelled")
+    .filter((a) => a.status !== "cancelled" && !NON_BILLABLE.includes(getServiceName(a.serviceId)))
     .reduce((sum, a) => sum + Number(a.servicePrice), 0);
 
-  // Comissão do dia
+  // Comissão do dia (excluindo Almoço/Fechado)
   const dayCommission = selectedDayAppointments
-    .filter((a) => a.status !== "cancelled")
+    .filter((a) => a.status !== "cancelled" && !NON_BILLABLE.includes(getServiceName(a.serviceId)))
     .reduce((sum, a) => sum + Number(a.commissionValue), 0);
 
-  // Comissão por profissional no dia
+  // Comissão por profissional no dia (excluindo Almoço/Fechado)
   const commissionByProfessional = professionals
     .map((prof) => ({
       id: prof.id,
       name: prof.name,
       specialty: prof.specialty,
       commission: selectedDayAppointments
-        .filter((a) => a.professionalId === prof.id && a.status !== "cancelled")
+        .filter((a) => a.professionalId === prof.id && a.status !== "cancelled" && !NON_BILLABLE.includes(getServiceName(a.serviceId)))
         .reduce((sum, a) => sum + Number(a.commissionValue), 0),
       count: selectedDayAppointments
-        .filter((a) => a.professionalId === prof.id && a.status !== "cancelled")
+        .filter((a) => a.professionalId === prof.id && a.status !== "cancelled" && !NON_BILLABLE.includes(getServiceName(a.serviceId)))
         .length,
     }))
     .filter((p) => p.count > 0);
@@ -850,6 +902,76 @@ export default function AppointmentsPage() {
           )}
         </div>
       )}
+
+      {/* Confirmation Modal */}
+      <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-xl">Confirmar Agendamento</DialogTitle>
+          </DialogHeader>
+          {pendingAppt && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Revise os detalhes antes de confirmar:</p>
+              <div className="bg-muted/50 rounded-lg p-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Cliente</span>
+                  <span className="font-medium">{pendingAppt.values.clientName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Profissional</span>
+                  <span className="font-medium">{pendingAppt.profName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Serviço(s)</span>
+                  <span className="font-medium text-right max-w-[60%]">{pendingAppt.serviceNames}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Data / Hora</span>
+                  <span className="font-medium">
+                    {pendingAppt.values.date
+                      ? format(pendingAppt.values.date, "dd/MM/yyyy", { locale: ptBR })
+                      : format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}
+                    {" "}{pendingAppt.values.time}
+                  </span>
+                </div>
+                <div className="border-t pt-2 mt-2 flex justify-between">
+                  <span className="text-muted-foreground">Valor Total</span>
+                  <span className="font-semibold">{formatCurrency(pendingAppt.totalPrice)}</span>
+                </div>
+                {!pendingAppt.isNonBillable && (
+                  <div className="flex justify-between text-primary">
+                    <span className="font-medium">Sua Comissão ({pendingAppt.commissionPct}%)</span>
+                    <span className="font-bold text-base">{formatCurrency(pendingAppt.totalCommission)}</span>
+                  </div>
+                )}
+                {pendingAppt.isNonBillable && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Comissão</span>
+                    <span className="italic">Não se aplica</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => { setShowConfirmModal(false); setPendingAppt(null); }}
+                >
+                  Voltar
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={confirmAppointment}
+                  disabled={createMutation.isPending}
+                >
+                  {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Sim, Confirmar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* New Appointment Modal */}
       <Dialog open={showNewModal} onOpenChange={setShowNewModal}>
