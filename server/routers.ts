@@ -634,7 +634,7 @@ const setupRouter = router({
 
   // Debug: buscar agendamentos da semana com detalhes de comissão
   debugWeekAppts: publicProcedure
-    .input(z.object({ secret: z.string() }))
+    .input(z.object({ secret: z.string(), includeCancelled: z.boolean().optional().default(false) }))
     .query(async ({ input }) => {
       if (input.secret !== 'KBLOS_SETUP_2026') throw new TRPCError({ code: 'FORBIDDEN' });
       if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL not set');
@@ -653,29 +653,32 @@ const setupRouter = router({
         endOfWeek.setHours(23, 59, 59, 999);
 
         const [rows] = await conn.execute(
-          `SELECT a.id, a.scheduledAt, a.timeSlot, a.servicePrice, a.commissionPct, a.commissionValue,
+          `SELECT a.id, a.scheduledAt, a.timeSlot, a.servicePrice, a.commissionPct, a.commissionValue, a.status,
                   p.name as profName, s.name as svcName
            FROM appointments a
            JOIN professionals p ON p.id = a.professionalId
            JOIN services s ON s.id = a.serviceId
-           WHERE a.status != 'cancelled'
+           WHERE (a.status != 'cancelled' OR ? = 1)
              AND s.name NOT IN ('Almo\u00e7o','Fechado')
              AND a.scheduledAt >= ? AND a.scheduledAt <= ?
            ORDER BY p.name, a.scheduledAt`,
-          [startOfWeek.toISOString(), endOfWeek.toISOString()]
-        ) as [Array<{id:number;scheduledAt:Date|string;timeSlot:string;servicePrice:string;commissionPct:string;commissionValue:string;profName:string;svcName:string}>, unknown];
+          [input.includeCancelled ? 1 : 0, startOfWeek.toISOString(), endOfWeek.toISOString()]
+        ) as [Array<{id:number;scheduledAt:Date|string;timeSlot:string;servicePrice:string;commissionPct:string;commissionValue:string;status:string;profName:string;svcName:string}>, unknown];
 
         // Agrupar por profissional
-        const byProf: Record<string, {total: number; comm: number; appts: Array<{id:number;date:string;time:string;svc:string;price:number;pct:number;comm:number}>}> = {};
+        const byProf: Record<string, {total: number; comm: number; appts: Array<{id:number;date:string;time:string;svc:string;price:number;pct:number;comm:number;status:string}>}> = {};
         for (const r of rows) {
           if (!byProf[r.profName]) byProf[r.profName] = { total: 0, comm: 0, appts: [] };
           const price = Number(r.servicePrice);
           const pct = Number(r.commissionPct);
           const comm = Number(r.commissionValue);
           const dateStr = r.scheduledAt instanceof Date ? r.scheduledAt.toISOString().slice(0,10) : String(r.scheduledAt).slice(0,10);
-          byProf[r.profName].total += price;
-          byProf[r.profName].comm += comm;
-          byProf[r.profName].appts.push({ id: r.id, date: dateStr, time: r.timeSlot || '', svc: r.svcName, price, pct, comm });
+          // Apenas somar ativos
+          if (r.status !== 'cancelled') {
+            byProf[r.profName].total += price;
+            byProf[r.profName].comm += comm;
+          }
+          byProf[r.profName].appts.push({ id: r.id, date: dateStr, time: r.timeSlot || '', svc: r.svcName, price, pct, comm, status: r.status });
         }
 
         // Arredondar totais
