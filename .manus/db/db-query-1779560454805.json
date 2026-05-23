@@ -1,0 +1,37 @@
+{
+  "query": "SHOW TABLES;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 46cbc1vsr3mJ5gL.54b447c96361 --database 4eNQWSZhGCJTohuK9aDhoq --execute SHOW TABLES;",
+  "rows": [
+    {
+      "Tables_in_4eNQWSZhGCJTohuK9aDhoq": "__drizzle_migrations"
+    },
+    {
+      "Tables_in_4eNQWSZhGCJTohuK9aDhoq": "access_logs"
+    },
+    {
+      "Tables_in_4eNQWSZhGCJTohuK9aDhoq": "appointment_services"
+    },
+    {
+      "Tables_in_4eNQWSZhGCJTohuK9aDhoq": "appointments"
+    },
+    {
+      "Tables_in_4eNQWSZhGCJTohuK9aDhoq": "commission_rules"
+    },
+    {
+      "Tables_in_4eNQWSZhGCJTohuK9aDhoq": "professionals"
+    },
+    {
+      "Tables_in_4eNQWSZhGCJTohuK9aDhoq": "reminders"
+    },
+    {
+      "Tables_in_4eNQWSZhGCJTohuK9aDhoq": "services"
+    },
+    {
+      "Tables_in_4eNQWSZhGCJTohuK9aDhoq": "users"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_4eNQWSZhGCJTohuK9aDhoq\n__drizzle_migrations\naccess_logs\nappointment_services\nappointments\ncommission_rules\nprofessionals\nreminders\nservices\nusers\n",
+  "stderr": "",
+  "execution_time_ms": 297
+}

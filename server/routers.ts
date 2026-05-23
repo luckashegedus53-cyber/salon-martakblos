@@ -612,6 +612,49 @@ const setupRouter = router({
         await conn.end();
       }
     }),
+
+  // Define comissão padrão de um profissional por nome e recalcula agendamentos
+  setProfCommission: publicProcedure
+    .input(z.object({ secret: z.string(), profName: z.string(), pct: z.number() }))
+    .mutation(async ({ input }) => {
+      if (input.secret !== 'KBLOS_SETUP_2026') throw new TRPCError({ code: 'FORBIDDEN' });
+      if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL not set');
+      const mysql = await import('mysql2/promise');
+      const conn = await mysql.createConnection(process.env.DATABASE_URL);
+      try {
+        // Atualizar defaultCommissionPct do profissional
+        await conn.execute(
+          `UPDATE professionals SET defaultCommissionPct=? WHERE name=?`,
+          [input.pct.toFixed(2), input.profName]
+        );
+        // Buscar o ID do profissional
+        const [rows] = await conn.execute(
+          `SELECT id FROM professionals WHERE name=?`, [input.profName]
+        ) as [Array<{id: number}>, unknown];
+        if (!rows.length) return { success: false, message: 'Profissional não encontrado' };
+        const profId = rows[0].id;
+        // Remover regras de comissão específicas desse profissional (para usar o padrão)
+        await conn.execute(`DELETE FROM commission_rules WHERE professionalId=?`, [profId]);
+        // Recalcular todos os agendamentos desse profissional
+        const [appts] = await conn.execute(
+          `SELECT id, servicePrice FROM appointments WHERE professionalId=? AND status != 'cancelled'`,
+          [profId]
+        ) as [Array<{id: number; servicePrice: string}>, unknown];
+        let updated = 0;
+        for (const appt of appts) {
+          const price = Number(appt.servicePrice);
+          const commValue = parseFloat((price * input.pct / 100).toFixed(2));
+          await conn.execute(
+            `UPDATE appointments SET commissionPct=?, commissionValue=? WHERE id=?`,
+            [input.pct.toFixed(2), commValue.toFixed(2), appt.id]
+          );
+          updated++;
+        }
+        return { success: true, profId, updated, pct: input.pct };
+      } finally {
+        await conn.end();
+      }
+    }),
 });
 
 // ─── App Router ───────────────────────────────────────────────────────────────
