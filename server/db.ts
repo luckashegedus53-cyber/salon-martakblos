@@ -453,9 +453,9 @@ export async function replaceAppointmentServices(
   const label = svcItems.map((s) => s.serviceName).join(" + ");
   await db.update(appointments).set({
     serviceId: primaryServiceId,
-    servicePrice: String(totalPrice.toFixed(2)),
-    commissionPct: String(commissionPct.toFixed(2)),
-    commissionValue: String(totalCommission.toFixed(2)),
+    servicePrice: String(Math.round(totalPrice * 100) / 100),
+    commissionPct: String(Math.round(commissionPct * 100) / 100),
+    commissionValue: String(Math.round(totalCommission * 100) / 100),
   }).where(eq(appointments.id, appointmentId));
   return label;
 }
@@ -581,12 +581,12 @@ export async function updateAppointmentServicePrice(
 ) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const commissionValue = (servicePrice * commissionPct) / 100;
+  const commissionValue = Math.round((servicePrice * commissionPct) / 100 * 100) / 100;
   await db
     .update(appointments)
     .set({
-      servicePrice: String(servicePrice.toFixed(2)),
-      commissionValue: String(commissionValue.toFixed(2)),
+      servicePrice: String(Math.round(servicePrice * 100) / 100),
+      commissionValue: String(commissionValue),
     })
     .where(eq(appointments.id, id));
 }
@@ -601,8 +601,8 @@ export async function updateAppointmentCommission(
   await db
     .update(appointments)
     .set({
-      commissionPct: String(commissionPct.toFixed(2)),
-      commissionValue: String(commissionValue.toFixed(2)),
+      commissionPct: String(Math.round(commissionPct * 100) / 100),
+      commissionValue: String(Math.round(commissionValue * 100) / 100),
     })
     .where(eq(appointments.id, id));
 }

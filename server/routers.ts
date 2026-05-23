@@ -173,7 +173,7 @@ const commissionRouter = router({
         if (input.serviceId != null && appt.serviceId !== input.serviceId) continue;
         // Recalcular com o novo percentual
         const newPct = await resolveCommissionPct(input.professionalId, appt.serviceId);
-        const newValue = parseFloat((Number(appt.servicePrice) * newPct / 100).toFixed(2));
+        const newValue = Math.round(Number(appt.servicePrice) * newPct / 100 * 100) / 100;
         await db.updateAppointmentCommission(appt.id, newPct, newValue);
         recalculated++;
       }
@@ -236,21 +236,20 @@ const appointmentsRouter = router({
         const service = await getServiceById(svcInput.serviceId);
         if (!service) throw new TRPCError({ code: "NOT_FOUND", message: `Serviço ${svcInput.serviceId} não encontrado.` });
         const commissionPct = await resolveCommissionPct(input.professionalId, svcInput.serviceId);
-        const commissionValue = (svcInput.price * commissionPct) / 100;
+        const commissionValue = Math.round((svcInput.price * commissionPct) / 100 * 100) / 100;
         totalPrice += svcInput.price;
         totalCommission += commissionValue;
         svcItems.push({
           serviceId: svcInput.serviceId,
           serviceName: service.name,
-          price: String(svcInput.price.toFixed(2)),
-          commissionPct: String(commissionPct.toFixed(2)),
-          commissionValue: String(commissionValue.toFixed(2)),
+          price: String(Math.round(svcInput.price * 100) / 100),
+          commissionPct: String(commissionPct),
+          commissionValue: String(commissionValue),
           appointmentId: 0, // será sobrescrito
         });
       }
       avgCommissionPct = totalPrice > 0 ? (totalCommission / totalPrice) * 100 : 0;
       const servicesLabel = svcItems.map((s) => s.serviceName).join(" + ");
-
       await createAppointmentWithServices(
         {
           clientName: input.clientName,
@@ -260,13 +259,12 @@ const appointmentsRouter = router({
           scheduledAt: input.scheduledAt,
           timeSlot: input.timeSlot ?? null,
           notes: input.notes ?? null,
-          servicePrice: String(totalPrice.toFixed(2)),
-          commissionPct: String(avgCommissionPct.toFixed(2)),
-          commissionValue: String(totalCommission.toFixed(2)),
+          servicePrice: String(Math.round(totalPrice * 100) / 100),
+          commissionPct: String(Math.round(avgCommissionPct * 100) / 100),
+          commissionValue: String(Math.round(totalCommission * 100) / 100),
         },
         svcItems
       );
-
       return { success: true, servicesLabel };
     }),
 
@@ -326,18 +324,16 @@ const appointmentsRouter = router({
 
         const commissionPct = await resolveCommissionPct(professionalId, serviceId);
         const servicePrice = Number(service.price);
-        const commissionValue = (servicePrice * commissionPct) / 100;
-
+        const commissionValue = Math.round(servicePrice * commissionPct / 100 * 100) / 100;
         await updateAppointment(id, {
           ...data,
           servicePrice: String(servicePrice),
           commissionPct: String(commissionPct),
-          commissionValue: String(commissionValue.toFixed(2)),
+          commissionValue: String(commissionValue),
         });
       } else {
         await updateAppointment(id, data);
       }
-
       return { success: true };
     }),
 });
@@ -622,10 +618,10 @@ const setupRouter = router({
         for (const appt of appts) {
           const price = Number(appt.servicePrice);
           const pct = resolveCommission(appt.professionalId, appt.serviceId);
-          const commValue = parseFloat((price * pct / 100).toFixed(2));
+          const commValue = Math.round(price * pct / 100 * 100) / 100;
           await conn.execute(
             `UPDATE appointments SET commissionPct=?, commissionValue=? WHERE id=?`,
-            [pct.toFixed(2), commValue.toFixed(2), appt.id]
+            [pct, commValue, appt.id]
           );
           updated++;
         }
