@@ -1,0 +1,9 @@
+{
+  "query": "SELECT id, clientName, servicePrice, commissionPct, commissionValue FROM appointments WHERE id = 84;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 46cbc1vsr3mJ5gL.54b447c96361 --database 4eNQWSZhGCJTohuK9aDhoq --execute SELECT id, clientName, servicePrice, commissionPct, commissionValue FROM appointments WHERE id = 84;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 388
+}

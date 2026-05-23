@@ -690,6 +690,48 @@ const setupRouter = router({
       }
     }),
 
+  // Corrigir agendamentos específicos: atualizar servicePrice e recalcular commissionValue
+  fixAppts: publicProcedure
+    .input(z.object({
+      secret: z.string(),
+      fixes: z.array(z.object({
+        id: z.number(),
+        servicePrice: z.number().optional(),
+        action: z.enum(['update_price', 'cancel']).optional().default('update_price'),
+      }))
+    }))
+    .mutation(async ({ input }) => {
+      if (input.secret !== 'KBLOS_SETUP_2026') throw new TRPCError({ code: 'FORBIDDEN' });
+      if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL not set');
+      const mysql = await import('mysql2/promise');
+      const conn = await mysql.createConnection(process.env.DATABASE_URL);
+      try {
+        const results: string[] = [];
+        for (const fix of input.fixes) {
+          if (fix.action === 'cancel') {
+            await conn.execute(`UPDATE appointments SET status='cancelled' WHERE id=?`, [fix.id]);
+            results.push(`ID ${fix.id}: cancelado`);
+          } else if (fix.servicePrice !== undefined) {
+            // Buscar commissionPct atual
+            const [rows] = await conn.execute(
+              `SELECT commissionPct FROM appointments WHERE id=?`, [fix.id]
+            ) as [Array<{commissionPct: string}>, unknown];
+            if (!rows.length) { results.push(`ID ${fix.id}: não encontrado`); continue; }
+            const pct = Number(rows[0].commissionPct);
+            const commValue = Math.round(fix.servicePrice * pct / 100 * 100) / 100;
+            await conn.execute(
+              `UPDATE appointments SET servicePrice=?, commissionValue=? WHERE id=?`,
+              [fix.servicePrice.toFixed(2), commValue.toFixed(2), fix.id]
+            );
+            results.push(`ID ${fix.id}: preço=${fix.servicePrice.toFixed(2)}, comissão=${commValue.toFixed(2)} (${pct}%)`);
+          }
+        }
+        return { success: true, results };
+      } finally {
+        await conn.end();
+      }
+    }),
+
   // Define comissão padrão de um profissional por nome e recalcula agendamentos
   setProfCommission: publicProcedure
     .input(z.object({ secret: z.string(), profName: z.string(), pct: z.number() }))

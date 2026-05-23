@@ -1,0 +1,9 @@
+{
+  "query": "\n-- Viviane ID 84: Mão estava R$35,00, deve ser R$38,00 → comissão = 38 * 60% = 22.80\nUPDATE appointments \nSET servicePrice = '38.00',\n    commissionValue = '22.80'\nWHERE id = 84;\n\n-- Verificar resultado\nSELECT id, clientName, servicePrice, commissionPct, commissionValue \nFROM appointments \nWHERE id = 84;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 46cbc1vsr3mJ5gL.54b447c96361 --database 4eNQWSZhGCJTohuK9aDhoq --execute \n-- Viviane ID 84: Mão estava R$35,00, deve ser R$38,00 → comissão = 38 * 60% = 22.80\nUPDATE appointments \nSET servicePrice = '38.00',\n    commissionValue = '22.80'\nWHERE id = 84;\n\n-- Verificar resultado\nSELECT id, clientName, servicePrice, commissionPct, commissionValue \nFROM appointments \nWHERE id = 84;\n",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 362
+}
