@@ -541,6 +541,77 @@ const setupRouter = router({
         await conn.end();
       }
     }),
+
+  recalcAllCommissions: publicProcedure
+    .input(z.object({ secret: z.string() }))
+    .mutation(async ({ input }) => {
+      if (input.secret !== 'KBLOS_SETUP_2026') throw new TRPCError({ code: 'FORBIDDEN' });
+      if (!ENV.databaseUrl) throw new Error('DATABASE_URL not set');
+      const mysql = await import('mysql2/promise');
+      const conn = await mysql.createConnection(ENV.databaseUrl);
+      try {
+        // Buscar todos os agendamentos não cancelados
+        const [appts] = await conn.execute(
+          `SELECT id, professionalId, serviceId, servicePrice FROM appointments WHERE status != 'cancelled'`
+        ) as [Array<{id: number; professionalId: number; serviceId: number; servicePrice: string}>, unknown];
+
+        // Buscar regras de comissão (global por serviço, sem profissional específico)
+        const [rules] = await conn.execute(
+          `SELECT professionalId, serviceId, commissionPct FROM commission_rules`
+        ) as [Array<{professionalId: number|null; serviceId: number|null; commissionPct: string}>, unknown];
+
+        // Buscar serviços com defaultCommissionPct
+        const [svcs] = await conn.execute(
+          `SELECT id, defaultCommissionPct FROM services`
+        ) as [Array<{id: number; defaultCommissionPct: string}>, unknown];
+
+        // Buscar profissionais com defaultCommissionPct
+        const [profs] = await conn.execute(
+          `SELECT id, defaultCommissionPct FROM professionals`
+        ) as [Array<{id: number; defaultCommissionPct: string}>, unknown];
+
+        // Mapas para lookup rápido
+        const specificRule = new Map<string, number>();
+        const generalProfRule = new Map<number, number>();
+        const globalSvcRule = new Map<number, number>();
+        for (const r of rules) {
+          if (r.professionalId != null && r.serviceId != null) {
+            specificRule.set(`${r.professionalId}:${r.serviceId}`, Number(r.commissionPct));
+          } else if (r.professionalId != null && r.serviceId == null) {
+            generalProfRule.set(r.professionalId, Number(r.commissionPct));
+          } else if (r.professionalId == null && r.serviceId != null) {
+            globalSvcRule.set(r.serviceId, Number(r.commissionPct));
+          }
+        }
+        const svcDefault = new Map(svcs.map(s => [s.id, Number(s.defaultCommissionPct)]));
+        const profDefault = new Map(profs.map(p => [p.id, Number(p.defaultCommissionPct)]));
+
+        function resolveCommission(profId: number, svcId: number): number {
+          if (specificRule.has(`${profId}:${svcId}`)) return specificRule.get(`${profId}:${svcId}`)!;
+          if (generalProfRule.has(profId)) return generalProfRule.get(profId)!;
+          if (globalSvcRule.has(svcId)) return globalSvcRule.get(svcId)!;
+          if (svcDefault.has(svcId) && svcDefault.get(svcId)! > 0) return svcDefault.get(svcId)!;
+          return profDefault.get(profId) ?? 0;
+        }
+
+        let updated = 0;
+        let skipped = 0;
+        for (const appt of appts) {
+          const price = Number(appt.servicePrice);
+          const pct = resolveCommission(appt.professionalId, appt.serviceId);
+          const commValue = parseFloat((price * pct / 100).toFixed(2));
+          await conn.execute(
+            `UPDATE appointments SET commissionPct=?, commissionValue=? WHERE id=?`,
+            [pct.toFixed(2), commValue.toFixed(2), appt.id]
+          );
+          updated++;
+        }
+
+        return { success: true, updated, skipped };
+      } finally {
+        await conn.end();
+      }
+    }),
 });
 
 // ─── App Router ───────────────────────────────────────────────────────────────
