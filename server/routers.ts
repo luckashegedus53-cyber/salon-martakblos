@@ -653,7 +653,7 @@ const setupRouter = router({
         endOfWeek.setHours(23, 59, 59, 999);
 
         const [rows] = await conn.execute(
-          `SELECT a.id, a.scheduledAt, a.timeSlot, a.servicePrice, a.commissionPct, a.commissionValue, a.status,
+          `SELECT a.id, a.clientName, a.scheduledAt, a.timeSlot, a.servicePrice, a.commissionPct, a.commissionValue, a.status,
                   p.name as profName, s.name as svcName
            FROM appointments a
            JOIN professionals p ON p.id = a.professionalId
@@ -663,10 +663,10 @@ const setupRouter = router({
              AND a.scheduledAt >= ? AND a.scheduledAt <= ?
            ORDER BY p.name, a.scheduledAt`,
           [input.includeCancelled ? 1 : 0, startOfWeek.toISOString(), endOfWeek.toISOString()]
-        ) as [Array<{id:number;scheduledAt:Date|string;timeSlot:string;servicePrice:string;commissionPct:string;commissionValue:string;status:string;profName:string;svcName:string}>, unknown];
+        ) as [Array<{id:number;clientName:string;scheduledAt:Date|string;timeSlot:string;servicePrice:string;commissionPct:string;commissionValue:string;status:string;profName:string;svcName:string}>, unknown];
 
         // Agrupar por profissional
-        const byProf: Record<string, {total: number; comm: number; appts: Array<{id:number;date:string;time:string;svc:string;price:number;pct:number;comm:number;status:string}>}> = {};
+        const byProf: Record<string, {total: number; comm: number; appts: Array<{id:number;client:string;date:string;time:string;svc:string;price:number;pct:number;comm:number;status:string}>}> = {};
         for (const r of rows) {
           if (!byProf[r.profName]) byProf[r.profName] = { total: 0, comm: 0, appts: [] };
           const price = Number(r.servicePrice);
@@ -678,7 +678,7 @@ const setupRouter = router({
             byProf[r.profName].total += price;
             byProf[r.profName].comm += comm;
           }
-          byProf[r.profName].appts.push({ id: r.id, date: dateStr, time: r.timeSlot || '', svc: r.svcName, price, pct, comm, status: r.status });
+          byProf[r.profName].appts.push({ id: r.id, client: r.clientName || '', date: dateStr, time: r.timeSlot || '', svc: r.svcName, price, pct, comm, status: r.status });
         }
 
         // Arredondar totais
