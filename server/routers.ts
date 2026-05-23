@@ -632,6 +632,64 @@ const setupRouter = router({
       }
     }),
 
+  // Debug: buscar agendamentos da semana com detalhes de comissão
+  debugWeekAppts: publicProcedure
+    .input(z.object({ secret: z.string() }))
+    .query(async ({ input }) => {
+      if (input.secret !== 'KBLOS_SETUP_2026') throw new TRPCError({ code: 'FORBIDDEN' });
+      if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL not set');
+      const mysql = await import('mysql2/promise');
+      const conn = await mysql.createConnection(process.env.DATABASE_URL);
+      try {
+        // Pegar início da semana (domingo) e fim da semana (sábado) no horário de Brasília
+        const now = new Date();
+        // Calcular semana atual (domingo a sábado)
+        const dayOfWeek = now.getDay(); // 0=domingo
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - dayOfWeek);
+        startOfWeek.setHours(0, 0, 0, 0);
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        endOfWeek.setHours(23, 59, 59, 999);
+
+        const [rows] = await conn.execute(
+          `SELECT a.id, a.scheduledAt, a.timeSlot, a.servicePrice, a.commissionPct, a.commissionValue,
+                  p.name as profName, s.name as svcName
+           FROM appointments a
+           JOIN professionals p ON p.id = a.professionalId
+           JOIN services s ON s.id = a.serviceId
+           WHERE a.status != 'cancelled'
+             AND s.name NOT IN ('Almo\u00e7o','Fechado')
+             AND a.scheduledAt >= ? AND a.scheduledAt <= ?
+           ORDER BY p.name, a.scheduledAt`,
+          [startOfWeek.toISOString(), endOfWeek.toISOString()]
+        ) as [Array<{id:number;scheduledAt:Date|string;timeSlot:string;servicePrice:string;commissionPct:string;commissionValue:string;profName:string;svcName:string}>, unknown];
+
+        // Agrupar por profissional
+        const byProf: Record<string, {total: number; comm: number; appts: Array<{id:number;date:string;time:string;svc:string;price:number;pct:number;comm:number}>}> = {};
+        for (const r of rows) {
+          if (!byProf[r.profName]) byProf[r.profName] = { total: 0, comm: 0, appts: [] };
+          const price = Number(r.servicePrice);
+          const pct = Number(r.commissionPct);
+          const comm = Number(r.commissionValue);
+          const dateStr = r.scheduledAt instanceof Date ? r.scheduledAt.toISOString().slice(0,10) : String(r.scheduledAt).slice(0,10);
+          byProf[r.profName].total += price;
+          byProf[r.profName].comm += comm;
+          byProf[r.profName].appts.push({ id: r.id, date: dateStr, time: r.timeSlot || '', svc: r.svcName, price, pct, comm });
+        }
+
+        // Arredondar totais
+        for (const prof of Object.values(byProf)) {
+          prof.total = Math.round(prof.total * 100) / 100;
+          prof.comm = Math.round(prof.comm * 100) / 100;
+        }
+
+        return { success: true, weekStart: startOfWeek.toISOString().slice(0,10), weekEnd: endOfWeek.toISOString().slice(0,10), byProf };
+      } finally {
+        await conn.end();
+      }
+    }),
+
   // Define comissão padrão de um profissional por nome e recalcula agendamentos
   setProfCommission: publicProcedure
     .input(z.object({ secret: z.string(), profName: z.string(), pct: z.number() }))
