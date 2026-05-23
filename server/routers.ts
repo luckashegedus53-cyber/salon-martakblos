@@ -700,6 +700,7 @@ const setupRouter = router({
       fixes: z.array(z.object({
         id: z.number(),
         servicePrice: z.number().optional(),
+        commissionValue: z.number().optional(),
         action: z.enum(['update_price', 'cancel']).optional().default('update_price'),
       }))
     }))
@@ -714,6 +715,12 @@ const setupRouter = router({
           if (fix.action === 'cancel') {
             await conn.execute(`UPDATE appointments SET status='cancelled' WHERE id=?`, [fix.id]);
             results.push(`ID ${fix.id}: cancelado`);
+          } else if (fix.commissionValue !== undefined) {
+            await conn.execute(
+              `UPDATE appointments SET commissionValue=? WHERE id=?`,
+              [fix.commissionValue.toFixed(2), fix.id]
+            );
+            results.push(`ID ${fix.id}: commissionValue=${fix.commissionValue.toFixed(2)}`);
           } else if (fix.servicePrice !== undefined) {
             // Buscar commissionPct atual
             const [rows] = await conn.execute(
