@@ -13,6 +13,7 @@ import CommissionsPage from "./pages/CommissionsPage";
 import LoginPage from "./pages/LoginPage";
 import RemindersPage from "./pages/RemindersPage";
 import AccessLogsPage from "./pages/AccessLogsPage";
+import WalletPage from "./pages/WalletPage";
 import ReminderChatbot from "./components/ReminderChatbot";
 import { useAuth } from "./_core/hooks/useAuth";
 
@@ -33,6 +34,8 @@ function Router() {
             <Route path="/commissions" component={CommissionsPage} />
             <Route path="/reminders" component={RemindersPage} />
             <Route path="/access-logs" component={AccessLogsPage} />
+            <Route path="/wallet" component={WalletPage} />
+            <Route path="/wallet/:profId" component={WalletPage} />
             <Route path="/404" component={NotFound} />
             <Route component={NotFound} />
           </Switch>

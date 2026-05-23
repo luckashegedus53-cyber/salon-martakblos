@@ -34,6 +34,7 @@ import {
   Settings,
   Sparkles,
   Users,
+  Wallet,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -44,6 +45,7 @@ import { Badge } from "./ui/badge";
 const adminMenuItems = [
   { icon: CalendarDays, label: "Agenda", path: "/" },
   { icon: BarChart3, label: "Dashboard Financeiro", path: "/dashboard" },
+  { icon: Wallet, label: "Carteira", path: "/wallet" },
   { icon: Users, label: "Profissionais", path: "/professionals" },
   { icon: Scissors, label: "Serviços", path: "/services" },
   { icon: Sparkles, label: "Comissões", path: "/commissions" },
@@ -53,6 +55,7 @@ const adminMenuItems = [
 
 const professionalMenuItems = [
   { icon: CalendarDays, label: "Agenda", path: "/" },
+  { icon: Wallet, label: "Minha Carteira", path: "/wallet" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "salon-sidebar-width";

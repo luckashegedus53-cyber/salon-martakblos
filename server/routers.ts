@@ -779,6 +779,142 @@ const setupRouter = router({
     }),
 });
 
+// ─── Wallet Router (Carteira da Profissional) ───────────────────────────────
+const walletRouter = router({
+  // Retorna a carteira semanal de uma profissional
+  // Admin pode ver qualquer profissional; profissional vê a própria (por nome de usuário)
+  weeklyWallet: protectedProcedure
+    .input(z.object({
+      professionalId: z.number().optional(), // admin pode especificar; profissional usa o próprio
+      weekOffset: z.number().optional().default(0), // 0=semana atual, -1=semana passada, etc.
+    }))
+    .query(async ({ input, ctx }) => {
+      if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL not set');
+      const mysql = await import('mysql2/promise');
+      const conn = await mysql.createConnection(process.env.DATABASE_URL);
+      try {
+        // Determinar qual profissional ver
+        let profId: number | null = null;
+        let profName = '';
+
+        if (ctx.user.role === 'admin' && input.professionalId) {
+          // Admin especificou um profissional
+          const [profRows] = await conn.execute(
+            `SELECT id, name FROM professionals WHERE id=? AND active=1`, [input.professionalId]
+          ) as [Array<{id:number;name:string}>, unknown];
+          if (profRows.length) { profId = profRows[0].id; profName = profRows[0].name; }
+        } else if (ctx.user.role === 'admin' && !input.professionalId) {
+          // Admin sem filtro: retornar lista de profissionais disponíveis
+          const [allProfs] = await conn.execute(
+            `SELECT id, name FROM professionals WHERE active=1 ORDER BY name`
+          ) as [Array<{id:number;name:string}>, unknown];
+          return { type: 'list' as const, professionals: allProfs };
+        } else {
+          // Profissional logada: vincular pelo nome do usuário
+          const userName = ctx.user.name || '';
+          const [profRows] = await conn.execute(
+            `SELECT id, name FROM professionals WHERE name=? AND active=1`, [userName]
+          ) as [Array<{id:number;name:string}>, unknown];
+          if (!profRows.length) {
+            // Tentar match parcial (primeiro nome)
+            const firstName = userName.split(' ')[0];
+            const [partialRows] = await conn.execute(
+              `SELECT id, name FROM professionals WHERE name LIKE ? AND active=1 LIMIT 1`, [`${firstName}%`]
+            ) as [Array<{id:number;name:string}>, unknown];
+            if (partialRows.length) { profId = partialRows[0].id; profName = partialRows[0].name; }
+          } else {
+            profId = profRows[0].id; profName = profRows[0].name;
+          }
+        }
+
+        if (!profId) throw new TRPCError({ code: 'NOT_FOUND', message: 'Profissional não encontrada.' });
+
+        // Calcular semana (BRT UTC-3)
+        const BRT_OFFSET = -3 * 60 * 60 * 1000;
+        const nowUTC = new Date();
+        const nowBRT = new Date(nowUTC.getTime() + BRT_OFFSET);
+        const day = nowBRT.getUTCDay(); // 0=dom
+        const weekOffsetDays = (input.weekOffset ?? 0) * 7;
+        const y = nowBRT.getUTCFullYear(), mo = nowBRT.getUTCMonth(), d = nowBRT.getUTCDate();
+        const startDay = d - day + weekOffsetDays;
+        const weekStart = new Date(Date.UTC(y, mo, startDay, 3, 0, 0));
+        const weekEnd = new Date(Date.UTC(y, mo, startDay + 7, 2, 59, 59));
+
+        // Buscar agendamentos ativos da semana
+        const [rows] = await conn.execute(
+          `SELECT a.id, a.clientName, a.scheduledAt, a.timeSlot, a.servicePrice, a.commissionPct, a.commissionValue, a.status, a.notes,
+                  s.name as svcName
+           FROM appointments a
+           JOIN services s ON s.id = a.serviceId
+           WHERE a.professionalId = ?
+             AND a.status != 'cancelled'
+             AND s.name NOT IN ('Almoço','Fechado')
+             AND a.scheduledAt >= ? AND a.scheduledAt <= ?
+           ORDER BY a.scheduledAt`,
+          [profId, weekStart.toISOString(), weekEnd.toISOString()]
+        ) as [Array<{id:number;clientName:string;scheduledAt:Date|string;timeSlot:string;servicePrice:string;commissionPct:string;commissionValue:string;status:string;notes:string|null;svcName:string}>, unknown];
+
+        // Agrupar por dia da semana
+        const byDay: Record<string, Array<{id:number;client:string;time:string;svc:string;price:number;pct:number;comm:number;status:string}>> = {};
+        let totalPrice = 0;
+        let totalComm = 0;
+        let totalCount = 0;
+
+        for (const r of rows) {
+          const dateStr = r.scheduledAt instanceof Date
+            ? r.scheduledAt.toISOString().slice(0,10)
+            : String(r.scheduledAt).slice(0,10);
+          if (!byDay[dateStr]) byDay[dateStr] = [];
+          const price = Number(r.servicePrice);
+          const pct = Number(r.commissionPct);
+          const comm = Number(r.commissionValue);
+          byDay[dateStr].push({ id: r.id, client: r.clientName, time: r.timeSlot || '', svc: r.svcName, price, pct, comm, status: r.status });
+          totalPrice += price;
+          totalComm += comm;
+          totalCount++;
+        }
+
+        // Calcular dias da semana para o calendário
+        const weekDays: Array<{date:string;label:string;count:number;comm:number}> = [];
+        const dayNames = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+        for (let i = 0; i < 7; i++) {
+          const dt = new Date(weekStart.getTime() + i * 24 * 60 * 60 * 1000 + BRT_OFFSET);
+          // Ajustar para data BRT correta
+          const dtBRT = new Date(weekStart.getTime() + i * 24 * 60 * 60 * 1000);
+          const dateKey = dtBRT.toISOString().slice(0,10);
+          const dayAppts = byDay[dateKey] || [];
+          weekDays.push({
+            date: dateKey,
+            label: dayNames[dt.getUTCDay()] + ' ' + String(dtBRT.getUTCDate()).padStart(2,'0') + '/' + String(dtBRT.getUTCMonth()+1).padStart(2,'0'),
+            count: dayAppts.length,
+            comm: Math.round(dayAppts.reduce((s,a) => s+a.comm, 0)*100)/100,
+          });
+        }
+
+        return {
+          type: 'wallet' as const,
+          profId,
+          profName,
+          weekStart: weekStart.toISOString().slice(0,10),
+          weekEnd: weekEnd.toISOString().slice(0,10),
+          weekOffset: input.weekOffset ?? 0,
+          totalCount,
+          totalPrice: Math.round(totalPrice*100)/100,
+          totalComm: Math.round(totalComm*100)/100,
+          byDay,
+          weekDays,
+        };
+      } finally {
+        await conn.end();
+      }
+    }),
+
+  // Lista todas as profissionais ativas (para admin escolher)
+  listProfessionals: protectedProcedure.query(async () => {
+    return getProfessionals(true);
+  }),
+});
+
 // ─── App Router ───────────────────────────────────────────────────────────────
 export const appRouter = router({
   system: systemRouter,
@@ -791,6 +927,7 @@ export const appRouter = router({
   reminders: remindersRouter,
   logs: logsRouter,
   setup: setupRouter,
+  wallet: walletRouter,
 });
 
 export type AppRouter = typeof appRouter;
