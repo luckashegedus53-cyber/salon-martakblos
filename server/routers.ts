@@ -546,9 +546,9 @@ const setupRouter = router({
     .input(z.object({ secret: z.string() }))
     .mutation(async ({ input }) => {
       if (input.secret !== 'KBLOS_SETUP_2026') throw new TRPCError({ code: 'FORBIDDEN' });
-      if (!ENV.databaseUrl) throw new Error('DATABASE_URL not set');
+      if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL not set');
       const mysql = await import('mysql2/promise');
-      const conn = await mysql.createConnection(ENV.databaseUrl);
+      const conn = await mysql.createConnection(process.env.DATABASE_URL);
       try {
         // Buscar todos os agendamentos não cancelados
         const [appts] = await conn.execute(
@@ -586,13 +586,13 @@ const setupRouter = router({
         const svcDefault = new Map(svcs.map(s => [s.id, Number(s.defaultCommissionPct)]));
         const profDefault = new Map(profs.map(p => [p.id, Number(p.defaultCommissionPct)]));
 
-        function resolveCommission(profId: number, svcId: number): number {
+        const resolveCommission = (profId: number, svcId: number): number => {
           if (specificRule.has(`${profId}:${svcId}`)) return specificRule.get(`${profId}:${svcId}`)!;
           if (generalProfRule.has(profId)) return generalProfRule.get(profId)!;
           if (globalSvcRule.has(svcId)) return globalSvcRule.get(svcId)!;
           if (svcDefault.has(svcId) && svcDefault.get(svcId)! > 0) return svcDefault.get(svcId)!;
           return profDefault.get(profId) ?? 0;
-        }
+        };
 
         let updated = 0;
         let skipped = 0;
