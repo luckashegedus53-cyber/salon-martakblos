@@ -22,13 +22,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Loader2, Plus, Scissors, Sparkles, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+
+const serviceSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  description: z.string().optional(),
+  durationMinutes: z.coerce.number().min(1).default(60),
+  price: z.string().min(1, "Valor é obrigatório"),
+  defaultCommissionPct: z.string().optional().default("0"),
+});
+type ServiceFormInput = z.input<typeof serviceSchema>;
+type ServiceFormValues = z.output<typeof serviceSchema>;
 
 const ruleSchema = z.object({
   professionalId: z.string().min(1, "Selecione um profissional"),
@@ -42,6 +53,7 @@ export default function CommissionsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const [showModal, setShowModal] = useState(false);
+  const [showServiceModal, setShowServiceModal] = useState(false);
   const [filterProfId, setFilterProfId] = useState<string>("all");
 
   const utils = trpc.useUtils();
@@ -60,6 +72,31 @@ export default function CommissionsPage() {
     },
     onError: (err) => toast.error(err.message),
   });
+
+  const createServiceMutation = trpc.services.create.useMutation({
+    onSuccess: () => {
+      toast.success("Serviço cadastrado!");
+      utils.services.list.invalidate();
+      setShowServiceModal(false);
+      serviceForm.reset();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const serviceForm = useForm<ServiceFormInput, unknown, ServiceFormValues>({
+    resolver: zodResolver(serviceSchema),
+    defaultValues: { name: "", description: "", durationMinutes: 60, price: "", defaultCommissionPct: "0" },
+  });
+
+  const onServiceSubmit = (values: ServiceFormValues) => {
+    createServiceMutation.mutate({
+      name: values.name,
+      description: values.description || null,
+      durationMinutes: values.durationMinutes,
+      price: values.price,
+      defaultCommissionPct: values.defaultCommissionPct || "0",
+    });
+  };
 
   const deleteMutation = trpc.commission.delete.useMutation({
     onSuccess: () => {
@@ -110,10 +147,16 @@ export default function CommissionsPage() {
             Configure comissões específicas por profissional e serviço
           </p>
         </div>
-        <Button onClick={() => { form.reset(); setShowModal(true); }} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Nova Regra
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => { serviceForm.reset(); setShowServiceModal(true); }} className="gap-2">
+            <Scissors className="h-4 w-4" />
+            Novo Serviço
+          </Button>
+          <Button onClick={() => { form.reset(); setShowModal(true); }} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Nova Regra
+          </Button>
+        </div>
       </div>
 
       {/* Priority explanation */}
@@ -221,7 +264,102 @@ export default function CommissionsPage() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal Novo Serviço */}
+      <Dialog open={showServiceModal} onOpenChange={setShowServiceModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-2xl">Novo Serviço</DialogTitle>
+          </DialogHeader>
+          <Form {...serviceForm}>
+            <form onSubmit={serviceForm.handleSubmit(onServiceSubmit)} className="space-y-4">
+              <FormField
+                control={serviceForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome do Serviço</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: Corte Feminino" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={serviceForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descrição <span className="text-muted-foreground">(opcional)</span></FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Detalhes do serviço..." rows={2} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={serviceForm.control}
+                  name="price"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Valor (R$)</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
+                          <Input type="number" min="0" step="0.01" placeholder="0,00" {...field} className="pl-9" />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={serviceForm.control}
+                  name="durationMinutes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Duração (min)</FormLabel>
+                      <FormControl>
+                        <Input type="number" min="1" placeholder="60" {...field} value={String(field.value ?? '')} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={serviceForm.control}
+                name="defaultCommissionPct"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Comissão Padrão (%)</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input type="number" min="0" max="100" step="0.5" placeholder="0" {...field} className="pr-8" />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex gap-3 pt-2">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setShowServiceModal(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" className="flex-1" disabled={createServiceMutation.isPending}>
+                  {createServiceMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Cadastrar Serviço
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Nova Regra de Comissão */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
