@@ -25,9 +25,11 @@ WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/drizzle ./drizzle
+COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
 
 EXPOSE 3000
 
 ENV NODE_ENV=production
 
-CMD ["sh", "-c", "npm run db:push && node dist/index.js"]
+CMD ["sh", "-c", "npx drizzle-kit migrate --config=drizzle.config.ts && node dist/index.js"]
