@@ -57,6 +57,7 @@ import {
   Filter,
   List,
   Loader2,
+  Pencil,
   Percent,
   Plus,
   Scissors,
@@ -109,6 +110,14 @@ export default function AppointmentsPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [showNewModal, setShowNewModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  // Modal de edição
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingAppt, setEditingAppt] = useState<(typeof appointments)[0] | null>(null);
+  const editForm = useForm<AppointmentFormValues>({
+    resolver: zodResolver(appointmentSchema),
+    defaultValues: { clientName: "", clientPhone: "", professionalId: "", time: "09:00", notes: "" },
+  });
+  const [editServiceItems, setEditServiceItems] = useState<ServiceItem[]>([{ serviceId: "", price: "" }]);
   const [prefilledTime, setPrefilledTime] = useState<string>("");
   // Lista de serviços do novo agendamento
   const [serviceItems, setServiceItems] = useState<ServiceItem[]>([{ serviceId: "", price: "" }]);
@@ -162,6 +171,20 @@ export default function AppointmentsPage() {
       utils.financial.commissions.invalidate();
       setShowNewModal(false);
       form.reset();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const updateMutation = trpc.appointments.update.useMutation({
+    onSuccess: () => {
+      toast.success("Agendamento atualizado!");
+      utils.appointments.list.invalidate();
+      utils.financial.daily.invalidate();
+      utils.financial.weekly.invalidate();
+      utils.financial.summary.invalidate();
+      utils.financial.commissions.invalidate();
+      setShowEditModal(false);
+      setEditingAppt(null);
     },
     onError: (err) => toast.error(err.message),
   });
@@ -269,6 +292,45 @@ export default function AppointmentsPage() {
     });
     setShowConfirmModal(false);
     setPendingAppt(null);
+  };
+
+  const openEditModal = (appt: (typeof appointments)[0]) => {
+    const d = new Date(appt.scheduledAt);
+    const h = String(d.getHours()).padStart(2, "0");
+    const m = String(d.getMinutes()).padStart(2, "0");
+    editForm.reset({
+      clientName: appt.clientName,
+      clientPhone: appt.clientPhone ?? "",
+      professionalId: String(appt.professionalId),
+      time: `${h}:${m}`,
+      notes: appt.notes ?? "",
+      date: d,
+    });
+    setEditServiceItems([{
+      serviceId: String(appt.serviceId),
+      price: Number(appt.servicePrice).toFixed(2).replace(".", ","),
+    }]);
+    setEditingAppt(appt);
+    setShowEditModal(true);
+  };
+
+  const submitEdit = (values: AppointmentFormValues) => {
+    if (!editingAppt) return;
+    const baseDate = values.date ?? new Date(editingAppt.scheduledAt);
+    const [hours, minutes] = values.time.split(":").map(Number);
+    const scheduledAt = new Date(baseDate);
+    scheduledAt.setHours(0, 0, 0, 0);
+    scheduledAt.setHours(hours!, minutes!, 0, 0);
+    const firstItem = editServiceItems[0];
+    updateMutation.mutate({
+      id: editingAppt.id,
+      clientName: values.clientName,
+      clientPhone: values.clientPhone || null,
+      professionalId: parseInt(values.professionalId),
+      serviceId: firstItem?.serviceId ? parseInt(firstItem.serviceId) : undefined,
+      scheduledAt,
+      notes: values.notes || null,
+    });
   };
 
   const openNewModal = (time?: string) => {
@@ -622,6 +684,13 @@ export default function AppointmentsPage() {
                                 !isLastProf && "border-r"
                               )}>
                                 <div className="flex gap-0.5">
+                                  <button
+                                    title="Editar"
+                                    onClick={() => openEditModal(appt)}
+                                    className="p-0.5 rounded text-blue-500 hover:bg-blue-50 transition-colors"
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                  </button>
                                   {appt.status === "scheduled" && (
                                     <button
                                       title="Concluir"
@@ -786,6 +855,13 @@ export default function AppointmentsPage() {
                           </p>
                         </div>
                         <div className="flex gap-2 mt-3">
+                          <Button
+                            size="sm" variant="outline"
+                            className="flex-1 h-7 text-xs gap-1 text-blue-600 border-blue-200 hover:bg-blue-50"
+                            onClick={() => openEditModal(appt)}
+                          >
+                            <Pencil className="h-3 w-3" /> Editar
+                          </Button>
                           {appt.status === "scheduled" && (
                             <Button
                               size="sm" variant="outline"
@@ -900,6 +976,13 @@ export default function AppointmentsPage() {
                                 <XCircle className="h-3.5 w-3.5" />
                               </button>
                             )}
+                            <button
+                              title="Editar"
+                              onClick={() => openEditModal(appt)}
+                              className="p-1 rounded text-blue-500 hover:bg-blue-50 transition-colors"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -978,6 +1061,174 @@ export default function AppointmentsPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Appointment Modal */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-2xl">Editar Agendamento</DialogTitle>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(submitEdit)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="clientName"
+                  render={({ field }) => (
+                    <FormItem className="col-span-2">
+                      <FormLabel>Nome do Cliente</FormLabel>
+                      <FormControl><Input placeholder="Nome completo" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="clientPhone"
+                  render={({ field }) => (
+                    <FormItem className="col-span-2">
+                      <FormLabel>Telefone <span className="text-muted-foreground">(opcional)</span></FormLabel>
+                      <FormControl><Input placeholder="(00) 00000-0000" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="professionalId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Profissional</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {professionals.map((p) => (
+                            <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {/* Serviço */}
+                <div className="col-span-2 space-y-2">
+                  <span className="text-sm font-medium">Serviço</span>
+                  {editServiceItems.map((item, idx) => (
+                    <div key={idx} className="flex gap-2 items-start">
+                      <div className="flex-1">
+                        <Select
+                          value={item.serviceId}
+                          onValueChange={(val) => {
+                            const svc = services.find((s) => String(s.id) === val);
+                            setEditServiceItems((prev) =>
+                              prev.map((s, i) =>
+                                i === idx
+                                  ? { ...s, serviceId: val, price: svc ? Number(svc.price).toFixed(2).replace(".", ",") : s.price }
+                                  : s
+                              )
+                            );
+                          }}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Selecione o serviço" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {services.map((s) => (
+                              <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="relative w-32">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0,00"
+                          className="pl-8 text-sm"
+                          value={item.price}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEditServiceItems((prev) =>
+                              prev.map((s, i) => (i === idx ? { ...s, price: val } : s))
+                            );
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <FormField
+                  control={editForm.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Data</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}
+                            >
+                              <CalendarDays className="mr-2 h-4 w-4" />
+                              {field.value ? format(field.value, "dd/MM/yyyy") : "Selecione"}
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value ?? undefined}
+                            onSelect={field.onChange}
+                            locale={ptBR}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Horário</FormLabel>
+                      <FormControl><Input type="time" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem className="col-span-2">
+                      <FormLabel>Observações <span className="text-muted-foreground">(opcional)</span></FormLabel>
+                      <FormControl><Textarea placeholder="Informações adicionais..." rows={2} {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setShowEditModal(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" className="flex-1" disabled={updateMutation.isPending}>
+                  {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Salvar Alterações
+                </Button>
+              </div>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 
